@@ -3,6 +3,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from unit import Unit, UnitType
+from skill import Skill
+from projectile import AoEProjectile
 
 class Pyromancer(Unit):
     def __init__(self):
@@ -22,8 +24,7 @@ class Pyromancer(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        from content.skills import create_skill
-        default_skill = create_skill("fireball")
+        default_skill = create_pyromancer_skill("fireball")
         if default_skill:
             self.set_spell(default_skill)
     
@@ -43,3 +44,40 @@ class Pyromancer(Unit):
 def create_pyromancer() -> Pyromancer:
     """Factory function to create a pyromancer"""
     return Pyromancer()
+
+
+# ===== PYROMANCER SKILLS =====
+
+class Fireball(Skill):
+    def __init__(self):
+        super().__init__("Fireball", "Launches an explosive fireball at the nearest enemy")
+        self.cast_time = 0.8
+        self.mana_cost = 100
+        self.range = 6
+        self.aoe_radius = 2
+        self.damage = 40
+        
+    def should_cast(self, caster) -> bool:
+        return len(self.get_valid_targets(caster, "enemy")) > 0
+        
+    def execute(self, caster):
+        targets = self.get_valid_targets(caster, "enemy")
+        if targets:
+            target = targets[0]  # Use first valid target
+            projectile = AoEProjectile(caster, target.x, target.y, speed=8.0)
+            projectile.damage = self.damage * (1 + caster.intelligence / 100)
+            projectile.damage_type = "magical"
+            projectile.explosion_radius = self.aoe_radius
+            caster.board.add_projectile(projectile)
+
+
+def create_pyromancer_skill(skill_name: str) -> Skill:
+    """Create pyromancer-specific skills"""
+    skill_classes = {
+        "fireball": Fireball,
+    }
+    
+    skill_class = skill_classes.get(skill_name.lower())
+    if skill_class:
+        return skill_class()
+    return None

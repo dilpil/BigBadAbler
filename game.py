@@ -265,7 +265,7 @@ class Game:
         return create_unit(unit_type)
     
     def create_skill(self, skill_name: str):
-        from content.skills import create_skill
+        from skill_factory import create_skill
         return create_skill(skill_name)
     
     def add_message(self, message: str):

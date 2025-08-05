@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from unit import Unit, UnitType
+from skill import Skill
 
 class Paladin(Unit):
     def __init__(self):
@@ -22,8 +23,7 @@ class Paladin(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        from content.skills import create_skill
-        default_skill = create_skill("holy_aura")
+        default_skill = create_paladin_skill("holy_aura")
         if default_skill:
             self.set_spell(default_skill)
     
@@ -43,3 +43,38 @@ class Paladin(Unit):
 def create_paladin() -> Paladin:
     """Factory function to create a paladin"""
     return Paladin()
+
+
+# ===== PALADIN SKILLS =====
+
+class HolyAura(Skill):
+    def __init__(self):
+        super().__init__("Holy Aura", "Heals nearby allies for 3 HP every second")
+        self.heal_amount = 3.0
+        self.range = 2
+        self.tick_timer = 0
+        
+    def update(self, dt: float):
+        super().update(dt)
+        if not self.owner or not self.owner.is_alive():
+            return
+            
+        self.tick_timer += dt
+        if self.tick_timer >= 1.0:
+            self.tick_timer -= 1.0
+            allies = self.owner.board.get_units_in_range(self.owner.x, self.owner.y, self.range, self.owner.team)
+            for ally in allies:
+                if ally.is_alive():
+                    ally.heal(self.heal_amount, self.owner)
+
+
+def create_paladin_skill(skill_name: str) -> Skill:
+    """Create paladin-specific skills"""
+    skill_classes = {
+        "holy_aura": HolyAura,
+    }
+    
+    skill_class = skill_classes.get(skill_name.lower())
+    if skill_class:
+        return skill_class()
+    return None

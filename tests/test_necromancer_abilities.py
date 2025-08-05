@@ -14,8 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board import Board
 from game import Game, GameMode
-from content.units.necromancer import create_necromancer
-from content.skills import create_skill
+from content.units.necromancer import create_necromancer, create_necromancer_skill
 from unit import Unit, UnitType
 
 
@@ -68,7 +67,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_undead_horde_summons_two_skeletons(self):
         """Test that undead_horde passive causes summon_skeleton to create 2 skeletons"""
         # Add undead_horde passive skill
-        undead_horde = create_skill("undead_horde")
+        undead_horde = create_necromancer_skill("undead_horde")
         self.necromancer.add_passive_skill(undead_horde)
         
         # Ensure necromancer has enough mana
@@ -90,7 +89,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_bone_sabers_increases_skeleton_damage(self):
         """Test that bone_sabers passive increases skeleton attack damage by 5"""
         # Add bone_sabers passive skill
-        bone_sabers = create_skill("bone_sabers")
+        bone_sabers = create_necromancer_skill("bone_sabers")
         self.necromancer.add_passive_skill(bone_sabers)
         
         # Summon skeleton
@@ -114,7 +113,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_hunger_gives_skeleton_life_drain(self):
         """Test that hunger passive gives summoned skeletons life drain ability"""
         # Add hunger passive skill
-        hunger = create_skill("hunger")
+        hunger = create_necromancer_skill("hunger")
         self.necromancer.add_passive_skill(hunger)
         
         # Summon skeleton
@@ -136,7 +135,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_burning_bones_adds_fire_aura(self):
         """Test that burning_bones passive adds fire aura to skeletons"""
         # Add burning_bones passive skill
-        burning_bones = create_skill("burning_bones")
+        burning_bones = create_necromancer_skill("burning_bones")
         self.necromancer.add_passive_skill(burning_bones)
         
         # Summon skeleton
@@ -159,7 +158,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_bone_shards_triggers_on_skeleton_death(self):
         """Test that bone_shards passive triggers when a skeleton dies"""
         # Add bone_shards passive skill to necromancer
-        bone_shards = create_skill("bone_shards")
+        bone_shards = create_necromancer_skill("bone_shards")
         self.necromancer.add_passive_skill(bone_shards)
         
         # Summon skeleton
@@ -191,7 +190,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_grave_chill_triggers_on_skeleton_death(self):
         """Test that grave_chill passive triggers when a skeleton dies"""
         # Add grave_chill passive skill to necromancer
-        grave_chill = create_skill("grave_chill")
+        grave_chill = create_necromancer_skill("grave_chill")
         self.necromancer.add_passive_skill(grave_chill)
         
         # Summon skeleton
@@ -224,7 +223,7 @@ class TestNecromancerAbilities(unittest.TestCase):
     def test_bone_fragments_triggers_on_unit_death(self):
         """Test that bone_fragments passive triggers when any unit dies"""
         # Add bone_fragments passive skill to necromancer
-        bone_fragments = create_skill("bone_fragments")
+        bone_fragments = create_necromancer_skill("bone_fragments")
         self.necromancer.add_passive_skill(bone_fragments)
         
         # Record initial projectile count

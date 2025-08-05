@@ -88,13 +88,13 @@ class TestGameSanity(unittest.TestCase):
         
         # Override create methods
         from content.units import create_unit
-        from content.skills import create_skill
+        from skill_factory import create_skill
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill
         
         # Override cost methods  
         from content.units import get_unit_cost
-        from content.skills import get_skill_cost
+        from skill_factory import get_skill_cost
         self.game.get_unit_cost = get_unit_cost
         self.game.get_skill_cost = get_skill_cost
         
@@ -153,7 +153,7 @@ class TestGameRoundReset(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         from content.units import create_unit, get_unit_cost
-        from content.skills import create_skill, get_skill_cost
+        from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill
         self.game.get_unit_cost = get_unit_cost
@@ -229,7 +229,7 @@ class TestUnitPersistence(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         from content.units import create_unit, get_unit_cost
-        from content.skills import create_skill, get_skill_cost
+        from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill
         self.game.get_unit_cost = get_unit_cost
