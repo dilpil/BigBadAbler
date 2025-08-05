@@ -52,11 +52,6 @@ class Necromancer(Unit):
         }
         return costs.get(skill_name, 30)
     
-    def get_available_skills(self) -> list:
-        """Get list of available active skills for this unit"""
-        return ["summon_skeleton", "raise_dead", "life_drain", "death_coil", 
-                "bone_armor", "unholy_presence", "corpse_explosion", "dark_ritual", "plague"]
-    
     @staticmethod
     def get_cost() -> int:
         """Get the gold cost to purchase this unit"""

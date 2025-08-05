@@ -35,11 +35,6 @@ class Paladin(Unit):
         """Get the cost of a passive skill"""
         return 30  # Default cost
     
-    def get_available_skills(self) -> list:
-        """Get list of available active skills for this unit"""
-        return ["holy_aura", "divine_shield", "holy_light", "hammer_of_justice", 
-                "consecration", "blessing_of_might", "retribution_aura", "lay_on_hands", "guardian_angel"]
-    
     @staticmethod
     def get_cost() -> int:
         """Get the gold cost to purchase this unit"""

@@ -36,11 +36,6 @@ class Berserker(Unit):
         """Get the cost of a passive skill"""
         return 30  # Default cost
     
-    def get_available_skills(self) -> list:
-        """Get list of available active skills for this unit"""
-        return ["bloodlust", "whirlwind", "berserker_rage", "intimidate", 
-                "rampage", "battle_cry", "cleave", "execute", "fury"]
-    
     @staticmethod
     def get_cost() -> int:
         """Get the gold cost to purchase this unit"""
