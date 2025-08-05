@@ -998,23 +998,26 @@ class PyUI:
                 self.screen.blit(text, text_rect)
                 
         else:
-            # Combat log
-            log_y = self.height - 220
+            # Combat log - positioned below board, centered, 75% width
+            log_height = 160
+            log_width = int(self.width * 0.75)  # 75% of screen width
+            log_x = (self.width - log_width) // 2  # Center horizontally
+            log_y = 730  # Below the board (board ends at 710)
+            
             pygame.draw.rect(self.screen, self.colors['panel_bg'], 
-                           (0, log_y, 400, 220))
-            pygame.draw.line(self.screen, self.colors['panel_border'], 
-                           (0, log_y), (400, log_y), 3)
-            pygame.draw.line(self.screen, self.colors['panel_border'], 
-                           (400, log_y), (400, self.height), 3)
+                           (log_x, log_y, log_width, log_height))
+            pygame.draw.rect(self.screen, self.colors['panel_border'], 
+                           (log_x, log_y, log_width, log_height), 3)
             
             text = self.fonts['medium'].render("COMBAT LOG", True, self.colors['text'])
-            self.screen.blit(text, (20, log_y + 10))
+            text_rect = text.get_rect(center=(self.width // 2, log_y + 20))
+            self.screen.blit(text, text_rect)
             
             # Draw messages
             y = log_y + 40
-            for message in self.game.message_log[-8:]:
+            for message in self.game.message_log[-6:]:  # Reduced to 6 messages due to smaller height
                 text = self.fonts['small'].render(message, True, self.colors['text'])
-                self.screen.blit(text, (20, y))
+                self.screen.blit(text, (log_x + 20, y))
                 y += 20
                 
     def draw_shop(self):
