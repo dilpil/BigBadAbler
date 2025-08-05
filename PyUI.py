@@ -31,8 +31,8 @@ class PyUI:
         self.game = Game(GameMode.ASYNC)
         
         self.tile_size = 60
-        self.board_x = 100
-        self.board_y = 120
+        self.board_x = 400  # Center horizontally: (1400 - 600) / 2
+        self.board_y = 110  # Center vertically: (900 - 600) / 2
         
         self.selected_unit = None
         self.dragging_unit = None
@@ -655,11 +655,6 @@ class PyUI:
                 pygame.draw.rect(self.screen, color,
                                (tile_x + 2, tile_y + 2, self.tile_size - 4, self.tile_size - 4))
                                
-        # Draw side labels
-        player_text = self.fonts['large'].render("PLAYER", True, self.colors['player_border'])
-        enemy_text = self.fonts['large'].render("ENEMY", True, self.colors['enemy_border'])
-        self.screen.blit(player_text, (self.board_x + 100, self.board_y - 40))
-        self.screen.blit(enemy_text, (self.board_x + 380, self.board_y - 40))
     
     def draw_tile_indicators(self):
         """Draw plus sign indicator on empty tiles during shopping phase."""
@@ -925,16 +920,8 @@ class PyUI:
             text = self.fonts['medium'].render(frame_text, True, self.colors['text'])
             self.screen.blit(text, (800, 55))
             
-            # Combat controls
-            controls = "SPACE: Pause/Resume | . (period): Advance 1 Frame"
-            text = self.fonts['small'].render(controls, True, self.colors['text'])
-            self.screen.blit(text, (600, 75))
         
         if self.game.phase == GamePhase.SHOPPING:
-            text = self.fonts['small'].render("Press SPACE to start combat", True, self.colors['text'])
-            self.screen.blit(text, (820, 50))
-            text = self.fonts['small'].render("Press . (period) to start paused", True, self.colors['text'])
-            self.screen.blit(text, (820, 65))
             
             # Show selected item info
             if self.selected_item:
