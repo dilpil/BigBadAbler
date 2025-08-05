@@ -159,6 +159,11 @@ class Unit:
             
         self.board.make_text_floater(f"{int(actual_damage)}", damage_color, unit=self)
         
+        # Add to combat log
+        if self.board.game:
+            source_name = source.name if hasattr(source, 'name') else "Unknown"
+            self.board.game.add_message(f"{source_name} dealt {int(actual_damage)} {damage_type} damage to {self.name}")
+        
         self.board.raise_event("damage_taken", 
                               unit=self, 
                               damage=actual_damage, 
@@ -186,6 +191,12 @@ class Unit:
         # Visual effect - red flash 4 times before vanishing
         self.death_timer = 0.8  # 4 flashes over 0.8 seconds
         self.flash_color = (255, 0, 0)
+        
+        # Add to combat log
+        if self.board.game:
+            killer_name = killer.name if hasattr(killer, 'name') else "Unknown"
+            self.board.game.add_message(f"{self.name} is slain by {killer_name}")
+        
         self.board.raise_event("unit_death", unit=self, killer=killer)
         self.board.raise_event("death", dying_unit=self, killer=killer)
     
@@ -219,6 +230,10 @@ class Unit:
         
         # Text floater for beginning cast
         self.board.make_text_floater(f"Casting {skill.name}...", (128, 0, 255), unit=self)
+        
+        # Add to combat log
+        if self.board.game:
+            self.board.game.add_message(f"{self.name} begins casting {skill.name}")
         
         self.board.raise_event("spell_cast", caster=self, skill=skill)
         return True
@@ -276,6 +291,10 @@ class Unit:
                 
                 # Text floater for completing cast
                 self.board.make_text_floater(f"Casts {self.cast_skill.name}!", (128, 0, 255), unit=self)
+                
+                # Add to combat log
+                if self.board.game:
+                    self.board.game.add_message(f"{self.name} casts {self.cast_skill.name}!")
                 
                 self.cast_skill.execute(self)
                 self.cast_skill.current_mana = 0  # Reset mana after casting

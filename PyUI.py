@@ -1009,13 +1009,9 @@ class PyUI:
             pygame.draw.rect(self.screen, self.colors['panel_border'], 
                            (log_x, log_y, log_width, log_height), 3)
             
-            text = self.fonts['medium'].render("COMBAT LOG", True, self.colors['text'])
-            text_rect = text.get_rect(center=(self.width // 2, log_y + 20))
-            self.screen.blit(text, text_rect)
-            
-            # Draw messages
-            y = log_y + 40
-            for message in self.game.message_log[-6:]:  # Reduced to 6 messages due to smaller height
+            # Draw messages - start from top without title
+            y = log_y + 10
+            for message in self.game.message_log[-8:]:  # Increased to 8 messages with extra space
                 text = self.fonts['small'].render(message, True, self.colors['text'])
                 self.screen.blit(text, (log_x + 20, y))
                 y += 20

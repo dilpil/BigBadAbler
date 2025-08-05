@@ -24,6 +24,7 @@ class Game:
         
         self.phase = GamePhase.SHOPPING
         self.board = Board()
+        self.board.game = self
         
         self.owned_units = []
         self.enemy_team = []

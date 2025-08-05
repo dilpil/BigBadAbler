@@ -15,6 +15,7 @@ class Board:
         self.visual_effects = []
         self.text_floater_manager = TextFloaterManager()
         self.event_handlers = {}
+        self.game = None  # Will be set by Game class
         
     def add_unit(self, unit, x: int, y: int, team: str):
         if self.is_valid_position(x, y) and not self.get_unit_at(x, y):
