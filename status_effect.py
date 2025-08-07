@@ -122,3 +122,63 @@ class ProtectionEffect(StatModifierEffect):
         unit.armor = self.original_armor
         unit.magic_resist = self.original_mr
         super().remove(unit)
+
+
+class AbsorbShieldEffect(StatusEffect):
+    """Absorbs incoming damage up to a certain amount"""
+    def __init__(self, name: str, duration: float, absorb_amount: float):
+        super().__init__(name, duration)
+        self.absorb_amount = absorb_amount
+        self.remaining_absorb = absorb_amount
+        
+    def on_damage_taken(self, unit, damage_amount: float, damage_type: str, source) -> float:
+        """Intercept damage and absorb it"""
+        if self.remaining_absorb <= 0:
+            return damage_amount
+            
+        absorbed = min(damage_amount, self.remaining_absorb)
+        self.remaining_absorb -= absorbed
+        remaining_damage = damage_amount - absorbed
+        
+        if self.remaining_absorb <= 0:
+            # Shield is broken
+            self.expire()
+            
+        return remaining_damage
+
+
+class PlagueEffect(DamageOverTimeEffect):
+    """Disease that spreads to nearby enemies"""
+    def __init__(self, name: str, duration: float, damage_per_tick: float, spread_radius: int = 2):
+        super().__init__(name, duration, damage_per_tick)
+        self.spread_radius = spread_radius
+        self.spread_timer = 0.0
+        self.spread_interval = 2.0  # Try to spread every 2 seconds
+        
+    def update(self, unit, dt: float):
+        super().update(unit, dt)
+        
+        # Try to spread the plague
+        self.spread_timer += dt
+        if self.spread_timer >= self.spread_interval:
+            self.spread_timer = 0.0
+            self.try_spread(unit)
+            
+    def try_spread(self, unit):
+        """Try to spread plague to nearby enemies"""
+        if not unit.board:
+            return
+            
+        # Find nearby enemies without plague
+        nearby_enemies = unit.board.get_units_in_range(unit.x, unit.y, self.spread_radius, 
+                                                      "enemy" if unit.team == "player" else "player")
+        
+        candidates = [enemy for enemy in nearby_enemies 
+                     if enemy.is_alive() and not any(eff.name == "Plague" for eff in enemy.status_effects)]
+        
+        if candidates:
+            import random
+            target = random.choice(candidates)
+            plague = PlagueEffect("Plague", self.duration * 0.7, self.damage_per_tick * 0.8)
+            plague.source = self.source
+            target.add_status_effect(plague)

@@ -13,6 +13,7 @@ class UnitType(Enum):
     PALADIN = "paladin"
     PYROMANCER = "pyromancer"
     BERSERKER = "berserker"
+    SKELETON = "skeleton"
 
 class Unit:
     _next_id = 0
@@ -196,6 +197,9 @@ class Unit:
         if self.board.game:
             killer_name = killer.name if hasattr(killer, 'name') else "Unknown"
             self.board.game.add_message(f"{self.name} is slain by {killer_name}")
+        
+        # Add corpse to the board for necromancer abilities
+        self.board.add_corpse(self.x, self.y, self)
         
         self.board.raise_event("unit_death", unit=self, killer=killer)
         self.board.raise_event("death", dying_unit=self, killer=killer)

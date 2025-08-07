@@ -16,6 +16,7 @@ class Board:
         self.text_floater_manager = TextFloaterManager()
         self.event_handlers = {}
         self.game = None  # Will be set by Game class
+        self.corpses = []  # List of corpse positions for necromancer abilities
         
     def add_unit(self, unit, x: int, y: int, team: str):
         if self.is_valid_position(x, y) and not self.get_unit_at(x, y):
@@ -52,6 +53,7 @@ class Board:
         self.projectiles.clear()
         self.visual_effects.clear()
         self.text_floater_manager.clear()
+        self.corpses.clear()
     
     def move_unit(self, unit, new_x: int, new_y: int):
         if not self.is_valid_position(new_x, new_y):
@@ -216,3 +218,33 @@ class Board:
         # Update all units
         for unit in self.get_all_units():
             unit.update(dt)
+            
+    def add_corpse(self, x: int, y: int, dead_unit):
+        """Add a corpse at the specified position"""
+        corpse = {
+            'x': x,
+            'y': y,
+            'unit_type': dead_unit.unit_type if hasattr(dead_unit, 'unit_type') else 'unknown',
+            'team': dead_unit.team,
+            'max_hp': dead_unit.max_hp,
+            'name': dead_unit.name
+        }
+        self.corpses.append(corpse)
+        
+    def get_corpses_in_area(self, center_x: int, center_y: int, radius: int):
+        """Get all corpses within radius of center position"""
+        corpses_in_area = []
+        for corpse in self.corpses:
+            distance = self.get_distance_coords(center_x, center_y, corpse['x'], corpse['y'])
+            if distance <= radius:
+                corpses_in_area.append(corpse)
+        return corpses_in_area
+        
+    def remove_corpse(self, corpse):
+        """Remove a corpse from the board"""
+        if corpse in self.corpses:
+            self.corpses.remove(corpse)
+            
+    def get_distance_coords(self, x1: int, y1: int, x2: int, y2: int) -> int:
+        """Get Chebyshev distance between two coordinates"""
+        return max(abs(x2 - x1), abs(y2 - y1))

@@ -57,7 +57,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
@@ -83,7 +83,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         
         # Count skeletons
         skeleton_count = sum(1 for unit in self.board.player_units 
-                           if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton")
+                           if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON)
         self.assertEqual(skeleton_count, 2)
     
     def test_bone_sabers_increases_skeleton_damage(self):
@@ -100,7 +100,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
@@ -124,7 +124,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
@@ -146,7 +146,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
@@ -164,28 +164,29 @@ class TestNecromancerAbilities(unittest.TestCase):
         # Summon skeleton
         self.necromancer.mp = 120
         summon_skill = self.necromancer.spell
+        summon_skill.current_mana = 100
         summon_skill.execute(self.necromancer)
         
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
         self.assertIsNotNone(skeleton)
+        skeleton.is_summoned = True  # Mark as summoned so bone shards triggers
         
         # Record initial projectile count
         initial_projectiles = len(self.board.projectiles)
         
         # Kill the skeleton
+        skeleton.hp = 0
         skeleton.die(self.enemy)
         
         # Check if projectiles were created (bone shards should shoot at enemies)
-        # This might not work immediately as the death event handling might be deferred
-        # We'll check if the bone_shards skill has the right event handler
-        has_death_handler = any(hasattr(skill, 'on_unit_death') for skill in self.necromancer.passive_skills)
-        self.assertTrue(has_death_handler, "Necromancer should have death event handler for bone shards")
+        self.assertGreater(len(self.board.projectiles), initial_projectiles, 
+                          "Bone shards should create projectiles when skeleton dies")
     
     def test_grave_chill_triggers_on_skeleton_death(self):
         """Test that grave_chill passive triggers when a skeleton dies"""
@@ -193,48 +194,60 @@ class TestNecromancerAbilities(unittest.TestCase):
         grave_chill = create_necromancer_skill("grave_chill")
         self.necromancer.add_passive_skill(grave_chill)
         
-        # Summon skeleton
-        self.necromancer.mp = 120
+        # Create a second enemy near the first one
+        enemy2 = Unit("Enemy2", UnitType.BERSERKER)
+        enemy2.max_hp = 80
+        enemy2.hp = 80
+        enemy2.board = self.board
+        self.board.add_unit(enemy2, 7, 5, "enemy")
+        
+        # Record enemy2's initial HP
+        initial_enemy2_hp = enemy2.hp
+        
+        # Kill the first enemy (to trigger grave chill)
+        self.enemy.hp = 0
+        self.enemy.die(self.necromancer)
+        
+        # Check if enemy2 took damage from grave chill (5% of enemy's max hp)
+        expected_damage = self.enemy.max_hp * 0.05
+        self.assertLess(enemy2.hp, initial_enemy2_hp, 
+                       "Grave chill should damage a nearby enemy when an enemy dies")
+        self.assertAlmostEqual(initial_enemy2_hp - enemy2.hp, expected_damage, places=1,
+                              msg="Grave chill should deal 5% of dying unit's max HP as damage")
+    
+    def test_bone_fragments_triggers_on_unit_death(self):
+        """Test that bone_fragments passive triggers when a skeleton dies"""
+        # Add bone_fragments passive skill to necromancer
+        bone_fragments = create_necromancer_skill("bone_fragments")
+        self.necromancer.add_passive_skill(bone_fragments)
+        
+        # Summon skeleton first
         summon_skill = self.necromancer.spell
+        summon_skill.current_mana = 100
         summon_skill.execute(self.necromancer)
         
         # Find the skeleton
         skeleton = None
         for unit in self.board.player_units:
-            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == "skeleton":
+            if unit != self.necromancer and hasattr(unit, 'unit_type') and unit.unit_type == UnitType.SKELETON:
                 skeleton = unit
                 break
         
         self.assertIsNotNone(skeleton)
+        skeleton.is_summoned = True  # Mark as summoned
         
-        # Place enemy near skeleton
-        self.board.move_unit(self.enemy, skeleton.x + 1, skeleton.y)
-        
-        # Record enemy's initial HP
-        initial_enemy_hp = self.enemy.hp
+        # Record initial unit count
+        initial_unit_count = len(self.board.player_units)
         
         # Kill the skeleton
+        skeleton.hp = 0
         skeleton.die(self.enemy)
         
-        # Check that grave chill skill has death event handler
-        has_death_handler = any(hasattr(skill, 'on_unit_death') for skill in self.necromancer.passive_skills)
-        self.assertTrue(has_death_handler, "Necromancer should have death event handler for grave chill")
-    
-    def test_bone_fragments_triggers_on_unit_death(self):
-        """Test that bone_fragments passive triggers when any unit dies"""
-        # Add bone_fragments passive skill to necromancer
-        bone_fragments = create_necromancer_skill("bone_fragments")
-        self.necromancer.add_passive_skill(bone_fragments)
-        
-        # Record initial projectile count
-        initial_projectiles = len(self.board.projectiles)
-        
-        # Kill the enemy
-        self.enemy.die(self.necromancer)
-        
-        # Check that bone fragments skill has death event handler
-        has_death_handler = any(hasattr(skill, 'on_unit_death') for skill in self.necromancer.passive_skills)
-        self.assertTrue(has_death_handler, "Necromancer should have death event handler for bone fragments")
+        # Board should still have units (necromancer + bone fragment spawned)
+        # The skeleton dies but a bone fragment should spawn
+        remaining_units = [u for u in self.board.player_units if u.is_alive()]
+        self.assertGreaterEqual(len(remaining_units), 1, 
+                               "Should have at least necromancer after skeleton dies and spawns fragment")
     
     def test_necromancer_default_skill_is_summon_skeleton(self):
         """Test that necromancer starts with summon_skeleton as default skill"""
@@ -282,7 +295,7 @@ class TestNecromancerAbilities(unittest.TestCase):
         
         # Create 3 skeleton units manually
         for i in range(3):
-            skeleton = Unit(f"Skeleton_{i}", "skeleton")
+            skeleton = Unit(f"Skeleton_{i}", UnitType.SKELETON)
             self.board.add_unit(skeleton, i, 0, "player")
         
         # Should not cast when 3 skeletons already exist

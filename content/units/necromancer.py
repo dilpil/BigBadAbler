@@ -75,7 +75,7 @@ class SummonSkeleton(Skill):
         self.summon_type = "skeleton"
         
     def should_cast(self, caster) -> bool:
-        return len([u for u in caster.board.player_units if u.unit_type == "skeleton"]) < 3
+        return len([u for u in caster.board.player_units if u.unit_type == UnitType.SKELETON]) < 3
         
     def execute(self, caster):
         pos = self.find_summon_position(caster)
@@ -83,7 +83,7 @@ class SummonSkeleton(Skill):
             skeleton = self.create_summon(caster)
             
             # Check for Undead Horde upgrade (summons 2 skeletons instead of 1)
-            num_skeletons = 2 if self.has_passive_skill("undead_horde") else 1
+            num_skeletons = 2 if self._caster_has_passive_skill(caster, "undead_horde") else 1
             
             for i in range(num_skeletons):
                 if i > 0:
@@ -103,27 +103,34 @@ class SummonSkeleton(Skill):
                 caster.board.add_visual_effect(VisualEffectType.DARK, pos[0], pos[1])
             
     def create_summon(self, caster):
-        # Create skeleton directly since it's not a full unit type
-        skeleton = Unit("Skeleton", "skeleton")
+        # Create skeleton with proper enum type
+        skeleton = Unit("Skeleton", UnitType.SKELETON)
         skeleton.max_hp = 40
         skeleton.hp = skeleton.max_hp
         skeleton.attack_damage = 8
         skeleton.armor = 5
         return skeleton
     
+    def _caster_has_passive_skill(self, caster, skill_name: str) -> bool:
+        """Check if caster has a specific passive skill"""
+        for passive in caster.passive_skills:
+            if passive.name.lower().replace(" ", "_") == skill_name.lower():
+                return True
+        return False
+    
     def apply_skeleton_upgrades(self, caster, skeleton):
         """Apply passive skill upgrades to summoned skeletons"""
         # Bone Sabers - increased melee damage
-        if self.has_passive_skill("bone_sabers"):
+        if self._caster_has_passive_skill(caster, "bone_sabers"):
             skeleton.attack_damage += 5
             
         # Hunger - add life drain spell
-        if self.has_passive_skill("hunger"):
+        if self._caster_has_passive_skill(caster, "hunger"):
             hunger_spell = LifeDrainSpell()
             skeleton.set_spell(hunger_spell)
             
         # Burning Bones - add fire aura
-        if self.has_passive_skill("burning_bones"):
+        if self._caster_has_passive_skill(caster, "burning_bones"):
             fire_aura = BurningBonesAura()
             skeleton.add_passive_skill(fire_aura)
 
@@ -151,7 +158,7 @@ class BoneShards(Skill):
         if event_type == "death" and "dying_unit" in kwargs:
             dying_unit = kwargs["dying_unit"]
             # Only trigger for summoned skeletons
-            if (dying_unit.unit_type == "skeleton" and 
+            if (dying_unit.unit_type == UnitType.SKELETON and 
                 hasattr(dying_unit, 'is_summoned') and dying_unit.is_summoned):
                 self.shoot_bone_shards(dying_unit)
                 
@@ -191,7 +198,7 @@ class BurningBones(Skill):
 class BurningBonesAura(Skill):
     """Fire aura that gets applied to skeletons"""
     def __init__(self):
-        super().__init__("Fire Aura", "Deals fire damage to nearby enemies")
+        super().__init__("Burning Bones Aura", "Deals fire damage to nearby enemies")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -234,8 +241,9 @@ class GraveChill(Skill):
         """Deal ice damage to a random nearby enemy"""
         import random
         
-        # Find enemies near the dying unit
-        nearby_enemies = self.get_targets_in_area(dying_unit, dying_unit.x, dying_unit.y, 3, "enemy")
+        # Find enemies near the dying unit (from the necromancer's perspective)
+        enemy_team = "enemy" if self.owner.team == "player" else "player"
+        nearby_enemies = self.owner.board.get_units_in_range(dying_unit.x, dying_unit.y, 3, enemy_team)
         # Filter out the dying unit itself
         nearby_enemies = [e for e in nearby_enemies if e != dying_unit and e.is_alive()]
         
@@ -258,14 +266,14 @@ class BoneFragments(Skill):
         if event_type == "death" and "dying_unit" in kwargs:
             dying_unit = kwargs["dying_unit"]
             # Only trigger for summoned skeletons
-            if (dying_unit.unit_type == "skeleton" and 
+            if (dying_unit.unit_type == UnitType.SKELETON and 
                 hasattr(dying_unit, 'is_summoned') and dying_unit.is_summoned):
                 self.spawn_bone_fragment(dying_unit)
                 
     def spawn_bone_fragment(self, skeleton):
         """Spawn a bone fragment at the skeleton's location"""
-        # Create bone fragment unit directly
-        fragment = Unit("Bone Fragment", "bone_fragment")
+        # Create bone fragment unit directly  
+        fragment = Unit("Bone Fragment", UnitType.SKELETON)  # Use skeleton type for fragments
         fragment.max_hp = 15
         fragment.hp = fragment.max_hp
         fragment.attack_damage = 3
@@ -309,10 +317,14 @@ class LifeDrainSpell(Skill):
             caster.heal(damage_dealt * 0.5, caster)
 
 
+
+
 def create_necromancer_skill(skill_name: str) -> Skill:
     """Create necromancer-specific skills"""
     skill_classes = {
+        # Active skill (only one)
         "summon_skeleton": SummonSkeleton,
+        # Passive skills
         "hunger": Hunger,
         "bone_shards": BoneShards,
         "undead_horde": UndeadHorde,
