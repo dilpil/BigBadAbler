@@ -8,6 +8,7 @@ from constants import FRAME_TIME
 class GamePhase(Enum):
     SHOPPING = "shopping"
     COMBAT = "combat"
+    POST_COMBAT = "post_combat"
 
 class GameMode(Enum):
     ASYNC = "async"
@@ -37,6 +38,9 @@ class Game:
         self.max_combat_time = 60.0
         self.combat_frame = 0
         self.paused = False
+        self.post_combat_timer = 0
+        self.post_combat_duration = 4.0
+        self.combat_result = None  # "victory" or "defeat"
         
         self.message_log = []
         
@@ -215,21 +219,28 @@ class Game:
             unit.board = self.board
     
     def update_combat(self, dt: float):
-        if self.phase != GamePhase.COMBAT:
-            return
+        if self.phase == GamePhase.COMBAT:
+            # Don't update if paused
+            if self.paused:
+                return
+                
+            self.combat_time += dt
+            self.combat_frame += 1
             
-        # Don't update if paused
-        if self.paused:
-            return
+            # Let the board handle all combat updates
+            self.board.update_combat(dt)
+                
+            if self.check_combat_end() or self.combat_time >= self.max_combat_time:
+                self.start_post_combat()
+        elif self.phase == GamePhase.POST_COMBAT:
+            # Continue updating visual effects and animations during post-combat
+            self.board.update_projectiles(dt)  # Some projectiles might still be in flight
+            self.board.update_visual_effects(dt)
+            self.board.text_floater_manager.update(dt)
             
-        self.combat_time += dt
-        self.combat_frame += 1
-        
-        # Let the board handle all combat updates
-        self.board.update_combat(dt)
-            
-        if self.check_combat_end() or self.combat_time >= self.max_combat_time:
-            self.end_combat()
+            self.post_combat_timer += dt
+            if self.post_combat_timer >= self.post_combat_duration:
+                self.end_combat()
     
     def check_combat_end(self) -> bool:
         player_alive = any(unit.is_alive() for unit in self.board.player_units)
@@ -237,21 +248,30 @@ class Game:
         
         return not player_alive or not enemy_alive
     
-    def end_combat(self):
+    def start_post_combat(self):
+        """Start the post-combat phase to show results"""
+        self.phase = GamePhase.POST_COMBAT
+        self.post_combat_timer = 0
+        
         player_alive = any(unit.is_alive() for unit in self.board.player_units)
         enemy_alive = any(unit.is_alive() for unit in self.board.enemy_units)
         
         if player_alive and not enemy_alive:
+            self.combat_result = "victory"
             self.player_wins += 1
             self.add_message("Victory!")
             if self.player_wins >= 20:
                 self.add_message("You Win the Game!")
         else:
+            self.combat_result = "defeat"
             self.player_lives -= 1
             self.add_message("Defeat!")
             if self.player_lives <= 0:
                 self.add_message("Game Over!")
-                
+    
+    def end_combat(self):
+        """Actually end combat and start new round"""
+        self.combat_result = None
         self.start_new_round()
     
     def get_unit_cost(self, unit_type: UnitType) -> int:

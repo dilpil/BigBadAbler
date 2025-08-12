@@ -137,7 +137,7 @@ class Unit:
             
         if damage_type == "physical":
             mitigation = 100 / (100 + self.armor)
-        elif damage_type in ["magical", "fire", "ice"]:
+        elif damage_type in ["magical", "fire", "ice", "lightning"]:
             mitigation = 100 / (100 + self.magic_resist)
         else:
             mitigation = 1.0
@@ -159,6 +159,8 @@ class Unit:
             damage_color = (255, 100, 50)  # Orange for fire damage
         elif damage_type == "ice":
             damage_color = (150, 200, 255)  # Light blue for ice damage
+        elif damage_type == "lightning":
+            damage_color = (255, 255, 100)  # Yellow for lightning damage
         else:
             damage_color = (255, 255, 0)  # Yellow for other damage types
             

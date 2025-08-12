@@ -488,7 +488,7 @@ class PyUI:
         
     def update(self, dt):
         # Track unit position changes for smooth movement
-        if self.game.phase == GamePhase.COMBAT:
+        if self.game.phase in [GamePhase.COMBAT, GamePhase.POST_COMBAT]:
             for unit in self.game.board.get_all_units():
                 unit_id = unit.id
                 
@@ -552,8 +552,8 @@ class PyUI:
             # Store the current phase before update
             prev_phase = self.game.phase
             self.game.update_combat(dt)
-            # If phase changed from combat to shopping, clear visual positions
-            if prev_phase == GamePhase.COMBAT and self.game.phase == GamePhase.SHOPPING:
+            # If phase changed to shopping, clear visual positions
+            if prev_phase in [GamePhase.COMBAT, GamePhase.POST_COMBAT] and self.game.phase == GamePhase.SHOPPING:
                 self.unit_visual_positions.clear()
         else:
             # In shopping phase, sync visual positions immediately
@@ -604,6 +604,10 @@ class PyUI:
             mouse_x, mouse_y = pygame.mouse.get_pos()
             self.draw_unit_at(self.dragging_unit, mouse_x - self.drag_offset[0], 
                             mouse_y - self.drag_offset[1], alpha=128)
+        
+        # Draw victory/defeat banner during post-combat
+        if self.game.phase == GamePhase.POST_COMBAT:
+            self.draw_combat_result_banner()
             
         pygame.display.flip()
         
@@ -834,6 +838,8 @@ class PyUI:
                     color = (255, 100, 255)
                 elif projectile.damage_type == "fire":
                     color = (255, 100, 50)  # Fire orange
+                elif projectile.damage_type == "lightning":
+                    color = (255, 255, 100)  # Lightning yellow
                 else:
                     color = (255, 255, 100)
             else:
@@ -905,13 +911,27 @@ class PyUI:
             (f"Gold: {self.game.gold}", 500),
         ]
         
-        for text, x in stats:
-            rendered = self.fonts['medium'].render(text, True, self.colors['text'])
+        for i, (text, x) in enumerate(stats):
+            # Flash lives counter on defeat during post-combat
+            if i == 1 and self.game.phase == GamePhase.POST_COMBAT and self.game.combat_result == "defeat":
+                # Create flashing effect
+                flash = int(self.game.post_combat_timer * 4) % 2
+                color = self.colors['enemy_border'] if flash else self.colors['text']
+                rendered = self.fonts['medium'].render(text, True, color)
+            else:
+                rendered = self.fonts['medium'].render(text, True, self.colors['text'])
             self.screen.blit(rendered, (x, y))
             
         # Phase indicator
-        phase_text = "SHOPPING PHASE" if self.game.phase == GamePhase.SHOPPING else "COMBAT PHASE"
-        phase_color = self.colors['player_border'] if self.game.phase == GamePhase.SHOPPING else self.colors['enemy_border']
+        if self.game.phase == GamePhase.SHOPPING:
+            phase_text = "SHOPPING PHASE"
+            phase_color = self.colors['player_border']
+        elif self.game.phase == GamePhase.POST_COMBAT:
+            phase_text = "COMBAT ENDED"
+            phase_color = self.colors['text']
+        else:
+            phase_text = "COMBAT PHASE"
+            phase_color = self.colors['enemy_border']
         text = self.fonts['large'].render(phase_text, True, phase_color)
         self.screen.blit(text, (800, 20))
         
@@ -1519,6 +1539,55 @@ class PyUI:
             lines.append(f"Cooldown: {skill.cooldown_time}s")
             
         return '\\n'.join(lines)
+    
+    def draw_combat_result_banner(self):
+        """Draw victory or defeat banner during post-combat phase"""
+        if not hasattr(self.game, 'combat_result') or not self.game.combat_result:
+            return
+            
+        # Create banner text
+        if self.game.combat_result == "victory":
+            text = "VICTORY!"
+            color = (100, 255, 100)  # Green
+            bg_color = (0, 100, 0)
+        else:
+            text = "DEFEAT!"
+            color = (255, 100, 100)  # Red
+            bg_color = (100, 0, 0)
+        
+        # Create large font if not exists
+        if not hasattr(self, 'banner_font'):
+            self.banner_font = pygame.font.Font(None, 120)
+            
+        # Render text
+        text_surface = self.banner_font.render(text, True, color)
+        text_rect = text_surface.get_rect(center=(self.width // 2, self.height // 2))
+        
+        # Draw background box with border
+        padding = 40
+        bg_rect = text_rect.inflate(padding * 2, padding)
+        
+        # Semi-transparent background
+        s = pygame.Surface((bg_rect.width, bg_rect.height))
+        s.set_alpha(200)
+        s.fill(bg_color)
+        self.screen.blit(s, bg_rect)
+        
+        # Border
+        pygame.draw.rect(self.screen, color, bg_rect, 5)
+        
+        # Draw text
+        self.screen.blit(text_surface, text_rect)
+        
+        # Show additional info
+        if self.game.combat_result == "victory":
+            sub_text = f"Wins: {self.game.player_wins}/20"
+        else:
+            sub_text = f"Lives: {self.game.player_lives}/5"
+            
+        sub_surface = self.fonts['large'].render(sub_text, True, color)
+        sub_rect = sub_surface.get_rect(center=(self.width // 2, self.height // 2 + 80))
+        self.screen.blit(sub_surface, sub_rect)
 
 
 if __name__ == "__main__":
