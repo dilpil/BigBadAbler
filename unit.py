@@ -183,10 +183,13 @@ class Unit:
             
         self.board.make_text_floater(f"{int(actual_damage)}", damage_color, unit=self)
         
-        # Add to combat log
+        # Add to combat log and play hit sound
         if self.board.game:
             source_name = source.name if hasattr(source, 'name') else "Unknown"
             self.board.game.add_message(f"{source_name} dealt {int(actual_damage)} {damage_type} damage to {self.name}")
+            # Play hit sound
+            if hasattr(self.board.game, 'ui') and self.board.game.ui:
+                self.board.game.ui.play_sound('hit')
         
         self.board.raise_event("damage_taken", 
                               unit=self, 
@@ -216,10 +219,13 @@ class Unit:
         self.death_timer = 0.8  # 4 flashes over 0.8 seconds
         self.flash_color = (255, 0, 0)
         
-        # Add to combat log
+        # Add to combat log and play death sound
         if self.board.game:
             killer_name = killer.name if hasattr(killer, 'name') else "Unknown"
             self.board.game.add_message(f"{self.name} is slain by {killer_name}")
+            # Play death sound
+            if hasattr(self.board.game, 'ui') and self.board.game.ui:
+                self.board.game.ui.play_sound('death')
         
         # Add corpse to the board for necromancer abilities
         self.board.add_corpse(self.x, self.y, self)
@@ -319,9 +325,12 @@ class Unit:
                 # Text floater for completing cast
                 self.board.make_text_floater(f"Casts {self.cast_skill.name}!", (128, 0, 255), unit=self)
                 
-                # Add to combat log
+                # Add to combat log and play spell sound
                 if self.board.game:
                     self.board.game.add_message(f"{self.name} casts {self.cast_skill.name}!")
+                    # Play spell sound
+                    if hasattr(self.board.game, 'ui') and self.board.game.ui:
+                        self.board.game.ui.play_sound('spell')
                 
                 self.cast_skill.execute(self)
                 self.cast_skill.current_mana = 0  # Reset mana after casting

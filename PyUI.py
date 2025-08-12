@@ -25,10 +25,15 @@ class PyUI:
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("BigBadAbler - Autobattler")
         
+        # Initialize sound system
+        pygame.mixer.init()
+        self.load_sounds()
+        
         self.clock = pygame.time.Clock()
         self.fps = FPS
         
         self.game = Game(GameMode.ASYNC)
+        self.game.ui = self  # Allow game to access UI for sound effects
         
         self.tile_size = 60
         self.board_x = 400  # Center horizontally: (1400 - 600) / 2
@@ -113,6 +118,25 @@ class PyUI:
         
         # Initialize the game after all attributes are set
         self.init_game()
+    
+    def load_sounds(self):
+        """Load all sound effects"""
+        try:
+            self.sounds = {
+                'death': pygame.mixer.Sound('soundFX/death_5.wav'),
+                'hit': pygame.mixer.Sound('soundFX/hit_4.wav'),
+                'spell': pygame.mixer.Sound('soundFX/sorcery_ally.wav'),
+                'buy': pygame.mixer.Sound('soundFX/menu_confirm.wav'),
+                'shop_close': pygame.mixer.Sound('soundFX/menu_abort.wav')
+            }
+        except pygame.error as e:
+            print(f"Error loading sounds: {e}")
+            self.sounds = {}
+    
+    def play_sound(self, sound_name):
+        """Play a sound effect"""
+        if sound_name in self.sounds:
+            self.sounds[sound_name].play()
         
     def init_game(self):
         self.game.available_units = get_available_units()
@@ -203,8 +227,9 @@ class PyUI:
                 if self.selected_item:
                     self.selected_item = None
                     self.selected_item_index = None
-                else:
+                elif self.shop_open != ShopType.NONE:
                     self.shop_open = ShopType.NONE
+                    self.play_sound('shop_close')
                 
     def handle_click(self, pos):
         x, y = pos
@@ -212,6 +237,7 @@ class PyUI:
         if self.shop_open != ShopType.NONE:
             if not self.is_click_in_shop(pos):
                 self.shop_open = ShopType.NONE
+                self.play_sound('shop_close')
             else:
                 self.handle_shop_click(pos)
             return
@@ -256,6 +282,7 @@ class PyUI:
         # Close shop if it's open
         if self.shop_open != ShopType.NONE:
             self.shop_open = ShopType.NONE
+            self.play_sound('shop_close')
             return
             
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])

@@ -183,6 +183,9 @@ class Game:
             unit.original_x = x
             unit.original_y = y
             self.add_message(f"Purchased {unit.name} for {cost} gold")
+            # Play purchase sound
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
             return True
             
         return False
@@ -202,6 +205,9 @@ class Game:
         if unit.set_spell(skill):
             self.gold -= cost
             self.add_message(f"Purchased {skill.name} for {unit.name} for {cost} gold")
+            # Play purchase sound
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
             return True
             
         return False
@@ -229,6 +235,9 @@ class Game:
         if unit.add_passive_skill(skill):
             self.gold -= cost
             self.add_message(f"Purchased {skill.name} for {unit.name} for {cost} gold")
+            # Play purchase sound
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
             return True
             
         return False
@@ -253,6 +262,9 @@ class Game:
             self.gold -= item.cost
             self.item_shop.remove(item)
             self.add_message(f"Purchased {item.name} for {unit.name} for {item.cost} gold")
+            # Play purchase sound
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
             return True
             
         return False
