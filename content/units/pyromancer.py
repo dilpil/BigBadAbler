@@ -9,15 +9,16 @@ from projectile import AoEProjectile
 class Pyromancer(Unit):
     def __init__(self):
         super().__init__("Pyromancer", UnitType.PYROMANCER)
-        self.max_hp = 70
+        self.max_hp = 550
         self.hp = self.max_hp
-        self.max_mp = 140
-        self.mp = self.max_mp
-        self.attack_damage = 6
-        self.attack_range = 5
+        self.max_mp = 80
+        self.mp = 20
+        self.attack_damage = 40
+        self.attack_range = 4
+        self.attack_speed = -15  # 0.85 attacks per second
         self.intelligence = 30
-        self.armor = 5
-        self.magic_resist = 10
+        self.armor = 20
+        self.magic_resist = 20
         
         # Set default skill immediately upon creation
         self._set_default_skill()
@@ -51,11 +52,11 @@ def create_pyromancer() -> Pyromancer:
 class Fireball(Skill):
     def __init__(self):
         super().__init__("Fireball", "Launches an explosive fireball at the nearest enemy")
-        self.cast_time = 0.8
-        self.mana_cost = 100
+        self.cast_time = 0.25
+        self.mana_cost = 80
         self.range = 6
         self.aoe_radius = 2
-        self.damage = 40
+        self.damage = 250
         
     def should_cast(self, caster) -> bool:
         return len(self.get_valid_targets(caster, "enemy")) > 0

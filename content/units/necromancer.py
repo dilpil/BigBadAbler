@@ -11,15 +11,16 @@ from visual_effect import VisualEffectType
 class Necromancer(Unit):
     def __init__(self):
         super().__init__("Necromancer", UnitType.NECROMANCER)
-        self.max_hp = 80
+        self.max_hp = 650
         self.hp = self.max_hp
-        self.max_mp = 120
-        self.mp = self.max_mp
-        self.attack_damage = 8
+        self.max_mp = 90
+        self.mp = 0
+        self.attack_damage = 45
         self.attack_range = 4
+        self.attack_speed = -20  # 0.8 attacks per second
         self.intelligence = 20
-        self.armor = 5
-        self.magic_resist = 15
+        self.armor = 25
+        self.magic_resist = 25
         
         # Set default skill immediately upon creation
         self._set_default_skill()
@@ -70,8 +71,8 @@ def create_necromancer() -> Necromancer:
 class SummonSkeleton(Skill):
     def __init__(self):
         super().__init__("Summon Skeleton", "Summons a skeleton warrior to fight for you")
-        self.cast_time = 1.0
-        self.mana_cost = 100
+        self.cast_time = 0.25
+        self.mana_cost = 90
         self.summon_type = "skeleton"
         
     def should_cast(self, caster) -> bool:
@@ -105,10 +106,11 @@ class SummonSkeleton(Skill):
     def create_summon(self, caster):
         # Create skeleton with proper enum type
         skeleton = Unit("Skeleton", UnitType.SKELETON)
-        skeleton.max_hp = 40
+        skeleton.max_hp = 350
         skeleton.hp = skeleton.max_hp
-        skeleton.attack_damage = 8
-        skeleton.armor = 5
+        skeleton.attack_damage = 35
+        skeleton.attack_speed = 0  # 1.0 attacks per second
+        skeleton.armor = 20
         return skeleton
     
     def _caster_has_passive_skill(self, caster, skill_name: str) -> bool:
@@ -122,7 +124,7 @@ class SummonSkeleton(Skill):
         """Apply passive skill upgrades to summoned skeletons"""
         # Bone Sabers - increased melee damage
         if self._caster_has_passive_skill(caster, "bone_sabers"):
-            skeleton.attack_damage += 5
+            skeleton.attack_damage += 15
             
         # Hunger - add life drain spell
         if self._caster_has_passive_skill(caster, "hunger"):
@@ -171,7 +173,7 @@ class BoneShards(Skill):
         
         for i, enemy in enumerate(enemies[:3]):
             projectile = Projectile(skeleton, enemy, speed=12.0)
-            projectile.damage = 15
+            projectile.damage = 120
             projectile.damage_type = "physical"
             projectile.on_hit_callback = lambda tgt: tgt.take_damage(projectile.damage, projectile.damage_type, skeleton)
             skeleton.board.add_projectile(projectile)
@@ -205,7 +207,7 @@ class BurningBonesAura(Skill):
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
-        self.damage = 3  # Lower damage per projectile
+        self.damage = 25  # Fire damage per projectile
         self.range = 3  # Range to find targets
         self.tick_timer = 0
         self.tick_interval = 1.0  # Shoot projectiles every 1 second
@@ -266,7 +268,7 @@ class GraveChill(Skill):
         
         if nearby_enemies:
             target = random.choice(nearby_enemies)
-            damage = dying_unit.max_hp * 0.05
+            damage = dying_unit.max_hp * 0.10
             target.take_damage(damage, "magical", self.owner)
 
 
@@ -291,10 +293,10 @@ class BoneFragments(Skill):
         """Spawn a bone fragment at the skeleton's location"""
         # Create bone fragment unit directly  
         fragment = Unit("Bone Fragment", UnitType.SKELETON)  # Use skeleton type for fragments
-        fragment.max_hp = 15
+        fragment.max_hp = 150
         fragment.hp = fragment.max_hp
-        fragment.attack_damage = 3
-        fragment.armor = 2
+        fragment.attack_damage = 20
+        fragment.armor = 10
         fragment.attack_range = 1
             
         # Place at skeleton's position
@@ -320,7 +322,7 @@ class LifeDrainSpell(Skill):
         self.cast_time = 1.0
         self.mana_cost = 50
         self.range = 4
-        self.damage = 12
+        self.damage = 80
         
     def should_cast(self, caster) -> bool:
         return len(self.get_valid_targets(caster, "enemy")) > 0

@@ -8,15 +8,16 @@ from skill import Skill
 class Paladin(Unit):
     def __init__(self):
         super().__init__("Paladin", UnitType.PALADIN)
-        self.max_hp = 150
+        self.max_hp = 850
         self.hp = self.max_hp
-        self.max_mp = 80
-        self.mp = self.max_mp
-        self.attack_damage = 15
+        self.max_mp = 60
+        self.mp = 0
+        self.attack_damage = 60
         self.attack_range = 1
+        self.attack_speed = -30  # 0.7 attacks per second
         self.strength = 15
-        self.armor = 20
-        self.magic_resist = 20
+        self.armor = 45
+        self.magic_resist = 45
         
         # Set default skill immediately upon creation
         self._set_default_skill()
@@ -49,8 +50,8 @@ def create_paladin() -> Paladin:
 
 class HolyAura(Skill):
     def __init__(self):
-        super().__init__("Holy Aura", "Heals nearby allies for 3 HP every second")
-        self.heal_amount = 3.0
+        super().__init__("Holy Aura", "Heals nearby allies every second")
+        self.heal_amount = 30.0
         self.range = 2
         self.tick_timer = 0
         

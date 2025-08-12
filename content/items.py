@@ -25,62 +25,62 @@ class Item:
 
 class Sword(Item):
     def __init__(self):
-        super().__init__("Sword", "+10 Attack Damage", 30)
-        self.stats = {"attack_damage": 10}
+        super().__init__("Sword", "+15 Attack Damage", 30)
+        self.stats = {"attack_damage": 15}
 
 
 class Staff(Item):
     def __init__(self):
-        super().__init__("Staff", "+15 Intelligence", 30)
+        super().__init__("Staff", "+15 Ability Power", 30)
         self.stats = {"intelligence": 15}
 
 
 class Armor(Item):
     def __init__(self):
-        super().__init__("Armor", "+15 Armor", 30)
-        self.stats = {"armor": 15}
+        super().__init__("Armor", "+20 Armor", 30)
+        self.stats = {"armor": 20}
 
 
 class Cloak(Item):
     def __init__(self):
-        super().__init__("Cloak", "+15 Magic Resist", 30)
-        self.stats = {"magic_resist": 15}
+        super().__init__("Cloak", "+20 Magic Resist", 30)
+        self.stats = {"magic_resist": 20}
 
 
 class Boots(Item):
     def __init__(self):
-        super().__init__("Boots", "+20% Attack Speed", 25)
-        self.stats = {"attack_speed": 20}
+        super().__init__("Boots", "+15% Attack Speed", 25)
+        self.stats = {"attack_speed": 15}
 
 
 class Ring(Item):
     def __init__(self):
-        super().__init__("Ring", "+20 Max Mana, +2 MP Regen", 35)
-        self.stats = {"max_mp": 20, "mp_regen": 2}
+        super().__init__("Ring", "+20 Max Mana", 35)
+        self.stats = {"max_mp": 20}
 
 
 class Amulet(Item):
     def __init__(self):
-        super().__init__("Amulet", "+30 Max HP, +2 HP Regen", 35)
-        self.stats = {"max_hp": 30, "hp_regen": 2}
+        super().__init__("Amulet", "+150 Max HP", 35)
+        self.stats = {"max_hp": 150}
 
 
 class Axe(Item):
     def __init__(self):
-        super().__init__("Axe", "+15 Strength", 30)
-        self.stats = {"strength": 15}
+        super().__init__("Axe", "+10 Attack Damage, +10% Crit", 30)
+        self.stats = {"attack_damage": 10, "crit_chance": 10}
 
 
 class Orb(Item):
     def __init__(self):
-        super().__init__("Orb", "+10 Int, +10 MP", 40)
-        self.stats = {"intelligence": 10, "max_mp": 10}
+        super().__init__("Orb", "+15 Ability Power, +15 Mana", 40)
+        self.stats = {"intelligence": 15, "max_mp": 15}
 
 
 class Shield(Item):
     def __init__(self):
-        super().__init__("Shield", "+10 Armor, +10 MR", 45)
-        self.stats = {"armor": 10, "magic_resist": 10}
+        super().__init__("Shield", "+15 Armor, +15 MR", 45)
+        self.stats = {"armor": 15, "magic_resist": 15}
 
 
 def create_item(item_name: str) -> Item:

@@ -9,16 +9,16 @@ from status_effect import StatModifierEffect
 class Berserker(Unit):
     def __init__(self):
         super().__init__("Berserker", UnitType.BERSERKER)
-        self.max_hp = 120
+        self.max_hp = 750
         self.hp = self.max_hp
-        self.max_mp = 60
-        self.mp = self.max_mp
-        self.attack_damage = 20
+        self.max_mp = 70
+        self.mp = 0
+        self.attack_damage = 70
         self.attack_range = 1
         self.strength = 25
-        self.attack_speed = 20
-        self.armor = 15
-        self.magic_resist = 10
+        self.attack_speed = 0  # 1.0 attacks per second
+        self.armor = 35
+        self.magic_resist = 35
         
         # Set default skill immediately upon creation
         self._set_default_skill()
@@ -52,11 +52,11 @@ def create_berserker() -> Berserker:
 class Bloodlust(Skill):
     def __init__(self):
         super().__init__("Bloodlust", "Increases attack speed by 50% for 3 seconds")
-        self.cast_time = 0.5
-        self.mana_cost = 100
+        self.cast_time = 0.25
+        self.mana_cost = 70
         self.range = 0
-        self.duration = 3.0
-        self.attack_speed_bonus = 50
+        self.duration = 4.0
+        self.attack_speed_bonus = 75
         
     def should_cast(self, caster) -> bool:
         return not any(e.name == "Bloodlust" for e in caster.status_effects)
