@@ -70,7 +70,7 @@ def create_necromancer() -> Necromancer:
 
 class SummonSkeleton(Skill):
     def __init__(self):
-        super().__init__("Summon Skeleton", "Summons a skeleton warrior to fight for you")
+        super().__init__("Summon Skeleton", "Summons a skeleton warrior (350 HP, 35 damage) to fight for you")
         self.cast_time = 0.25
         self.mana_cost = 90
         self.summon_type = "skeleton"
@@ -142,7 +142,7 @@ class SummonSkeleton(Skill):
 class Hunger(Skill):
     """Summoned skeletons gain a ranged life drain spell"""
     def __init__(self):
-        super().__init__("Hunger", "Summoned skeletons gain a ranged life drain spell")
+        super().__init__("Hunger", "Summoned skeletons gain a ranged life drain spell that deals 80 damage and heals for 50% of damage dealt")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -152,7 +152,7 @@ class Hunger(Skill):
 class BoneShards(Skill):
     """On death, summoned skeletons shoot bone shards at the 3 nearest enemies"""
     def __init__(self):
-        super().__init__("Bone Shards", "On death, summoned skeletons shoot bone shards at the 3 nearest enemies")
+        super().__init__("Bone Shards", "On death, summoned skeletons shoot bone shards at the 3 nearest enemies dealing 120 physical damage each")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -192,7 +192,7 @@ class UndeadHorde(Skill):
 class BurningBones(Skill):
     """Summoned Skeletons shoot fire projectiles at nearby enemies"""
     def __init__(self):
-        super().__init__("Burning Bones", "Summoned Skeletons shoot 3 fire projectiles at enemies within 3 tiles every second")
+        super().__init__("Burning Bones", "Summoned Skeletons shoot 3 fire projectiles (25 damage each) at enemies within 3 tiles every second")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -243,7 +243,7 @@ class BurningBonesAura(Skill):
 class GraveChill(Skill):
     """When an enemy unit dies, deal ice damage to a random nearby enemy"""
     def __init__(self):
-        super().__init__("Grave Chill", "When an enemy unit dies, deal ice damage equal to 5% of that enemies max hp to a random nearby enemy")
+        super().__init__("Grave Chill", "When an enemy unit dies, deal ice damage equal to 10% of that enemy's max HP to a random enemy within 3 tiles")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -275,7 +275,7 @@ class GraveChill(Skill):
 class BoneFragments(Skill):
     """Summoned Skeletons spawn bone fragments on death"""
     def __init__(self):
-        super().__init__("Bone Fragments", "Summoned Skeletons spawn bone fragments on death, which are smaller undead minions")
+        super().__init__("Bone Fragments", "Summoned Skeletons spawn bone fragments on death (150 HP, 20 damage) which are smaller undead minions")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -308,7 +308,7 @@ class BoneFragments(Skill):
 class BoneSabers(Skill):
     """Skeletons melee damage is increased"""
     def __init__(self):
-        super().__init__("Bone Sabers", "Skeletons melee damage is increased")
+        super().__init__("Bone Sabers", "Skeletons gain +15 attack damage")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -318,7 +318,7 @@ class BoneSabers(Skill):
 class LifeDrainSpell(Skill):
     """Life drain spell for skeletons with Hunger upgrade"""
     def __init__(self):
-        super().__init__("Life Drain", "Drains life from enemies")
+        super().__init__("Life Drain", "Drains 80 life from enemies and heals for 50% of damage dealt")
         self.cast_time = 1.0
         self.mana_cost = 50
         self.range = 4

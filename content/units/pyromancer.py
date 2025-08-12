@@ -51,7 +51,7 @@ def create_pyromancer() -> Pyromancer:
 
 class Fireball(Skill):
     def __init__(self):
-        super().__init__("Fireball", "Launches an explosive fireball at the nearest enemy")
+        super().__init__("Fireball", "Launches an explosive fireball dealing 250 (+30% INT) damage in a radius 2 area")
         self.cast_time = 0.25
         self.mana_cost = 80
         self.range = 6

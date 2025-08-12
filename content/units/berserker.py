@@ -51,7 +51,7 @@ def create_berserker() -> Berserker:
 
 class Bloodlust(Skill):
     def __init__(self):
-        super().__init__("Bloodlust", "Increases attack speed by 50% for 3 seconds")
+        super().__init__("Bloodlust", "Increases attack speed by 75% for 4 seconds")
         self.cast_time = 0.25
         self.mana_cost = 70
         self.range = 0

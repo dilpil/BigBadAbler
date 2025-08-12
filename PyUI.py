@@ -725,10 +725,11 @@ class PyUI:
             if flash_phase == 0:
                 alpha = 128
                 
-        # Draw unit square
-        unit_color = self.colors.get(unit.unit_type.value, (100, 100, 100))
+        # Draw unit square - always black background
+        unit_color = self.colors.get(unit.unit_type.value, (100, 100, 100))  # Save for letter color
+        background_color = (0, 0, 0)  # Always black background
         
-        # Apply flash effect
+        # Apply flash effect to background
         if unit.flash_timer > 0 and unit.flash_color:
             if unit.state.value == "casting":  # Continuous oscillating glow during casting
                 # Calculate oscillating intensity based on cast progress
@@ -742,13 +743,13 @@ class PyUI:
                 # Normal flash effect for other cases
                 flash_intensity = unit.flash_timer / unit.flash_duration
                 
-            unit_color = tuple(
-                int(unit_color[i] * (1 - flash_intensity) + unit.flash_color[i] * flash_intensity)
+            background_color = tuple(
+                int(background_color[i] * (1 - flash_intensity) + unit.flash_color[i] * flash_intensity)
                 for i in range(3)
             )
         
         s = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
-        s.fill(unit_color)
+        s.fill(background_color)
         s.set_alpha(alpha)
         self.screen.blit(s, (x + offset_x + 2, y + offset_y + 2))
         
@@ -757,9 +758,9 @@ class PyUI:
         pygame.draw.rect(self.screen, border_color,
                         (x + offset_x + 2, y + offset_y + 2, self.tile_size - 4, self.tile_size - 4), 3)
         
-        # Draw unit letter
+        # Draw unit letter with unit color
         letter = unit.unit_type.value[0].upper()
-        text = self.fonts['large'].render(letter, True, self.colors['text'])
+        text = self.fonts['large'].render(letter, True, unit_color)
         text_rect = text.get_rect(center=(x + offset_x + self.tile_size // 2, 
                                          y + offset_y + self.tile_size // 2 - 5))
         self.screen.blit(text, text_rect)
@@ -783,11 +784,11 @@ class PyUI:
         
         # Draw status effect indicators below items
         if unit.status_effects:
-            for i, status in enumerate(unit.status_effects[:4]):  # Max 4 shown
-                status_x = x + offset_x + 4 + i * 14
-                status_y = y + offset_y + 20  # Below items
+            for i, status in enumerate(unit.status_effects[:5]):  # Max 5 shown
+                status_x = x + offset_x + 6 + i * 10  # Smaller spacing
+                status_y = y + offset_y + 22  # Below items, adjusted for smaller size
                 status_color = (200, 100, 255) if "buff" in status.name.lower() else (255, 100, 100)
-                pygame.draw.rect(self.screen, status_color, (status_x, status_y, 12, 12))
+                pygame.draw.rect(self.screen, status_color, (status_x, status_y, 8, 8))  # Smaller squares
                 
         # Draw cast bar (only when casting)
         if unit.state.value == "casting" and unit.cast_time > 0:
@@ -800,8 +801,8 @@ class PyUI:
                 pygame.draw.rect(self.screen, self.colors['cast_bar'],
                                 (x + offset_x + 4, cast_bar_y, cast_width, 4))
         
-        # Draw HP bar
-        hp_bar_y = y + offset_y + self.tile_size - 12
+        # Draw HP bar (moved up to not cover border)
+        hp_bar_y = y + offset_y + self.tile_size - 16
         pygame.draw.rect(self.screen, self.colors['hp_bar_bg'],
                         (x + offset_x + 4, hp_bar_y, self.tile_size - 8, 4))
         hp_width = int((self.tile_size - 8) * (unit.hp / unit.max_hp))
@@ -809,8 +810,8 @@ class PyUI:
             pygame.draw.rect(self.screen, self.colors['hp_bar'],
                             (x + offset_x + 4, hp_bar_y, hp_width, 4))
                             
-        # Draw MP bar (shows spell mana)
-        mp_bar_y = y + offset_y + self.tile_size - 6
+        # Draw MP bar (shows spell mana) - moved up
+        mp_bar_y = y + offset_y + self.tile_size - 10
         pygame.draw.rect(self.screen, self.colors['mp_bar_bg'],
                         (x + offset_x + 4, mp_bar_y, self.tile_size - 8, 4))
         

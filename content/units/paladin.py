@@ -50,7 +50,7 @@ def create_paladin() -> Paladin:
 
 class HolyAura(Skill):
     def __init__(self):
-        super().__init__("Holy Aura", "Heals nearby allies every second")
+        super().__init__("Holy Aura", "Heals nearby allies for 30 HP every second in a radius of 2 tiles")
         self.heal_amount = 30.0
         self.range = 2
         self.tick_timer = 0

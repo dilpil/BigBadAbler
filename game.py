@@ -55,6 +55,7 @@ class Game:
             unit.board = self.board
                 
         self.generate_enemy_team()
+        self.position_enemy_units()  # Position enemies during shopping phase
         self.generate_item_shop()
         
         self.add_message(f"Round {self.round} - Shopping Phase")
@@ -171,7 +172,7 @@ class Game:
         self.combat_time = 0
         self.combat_frame = 0
         
-        self.position_enemy_units()
+        # Enemy units are already positioned during shopping phase
         
         self.add_message("Combat Phase Started!")
     
@@ -185,7 +186,7 @@ class Game:
         self.combat_frame = 0
         self.paused = True
         
-        self.position_enemy_units()
+        # Enemy units are already positioned during shopping phase
         
         self.add_message("Combat Phase Started (Paused)")
     
