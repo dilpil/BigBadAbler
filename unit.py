@@ -15,6 +15,23 @@ class UnitType(Enum):
     BERSERKER = "berserker"
     SKELETON = "skeleton"
 
+class PassiveSkill(Enum):
+    # Necromancer passives
+    HUNGER = "hunger"
+    BONE_SHARDS = "bone_shards"
+    UNDEAD_HORDE = "undead_horde"
+    BURNING_BONES = "burning_bones"
+    GRAVE_CHILL = "grave_chill"
+    BONE_FRAGMENTS = "bone_fragments"
+    BONE_SABERS = "bone_sabers"
+    
+    # Paladin passives
+    SMITE = "smite"
+    PROTECTION = "protection"
+    LAY_HANDS_ON = "lay_hands_on"
+    HOLY_THUNDER = "holy_thunder"
+    HEALING_AURA = "healing_aura"
+
 class Unit:
     _next_id = 0
     

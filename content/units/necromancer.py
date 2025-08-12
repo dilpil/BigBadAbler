@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from unit import Unit, UnitType
+from unit import Unit, UnitType, PassiveSkill
 from skill import Skill
 from projectile import Projectile, AoEProjectile
 from status_effect import *
@@ -34,25 +34,25 @@ class Necromancer(Unit):
     def get_available_passive_skills(self) -> list:
         """Get list of available passive skills for this unit"""
         return [
-            "hunger",
-            "bone_shards", 
-            "undead_horde",
-            "burning_bones",
-            "grave_chill",
-            "bone_fragments",
-            "bone_sabers"
+            PassiveSkill.HUNGER,
+            PassiveSkill.BONE_SHARDS, 
+            PassiveSkill.UNDEAD_HORDE,
+            PassiveSkill.BURNING_BONES,
+            PassiveSkill.GRAVE_CHILL,
+            PassiveSkill.BONE_FRAGMENTS,
+            PassiveSkill.BONE_SABERS
         ]
     
-    def get_passive_skill_cost(self, skill_name: str) -> int:
+    def get_passive_skill_cost(self, skill_name) -> int:
         """Get the cost of a passive skill"""
         costs = {
-            "hunger": 35,
-            "bone_shards": 30,
-            "undead_horde": 45,
-            "burning_bones": 40,
-            "grave_chill": 35,
-            "bone_fragments": 30,
-            "bone_sabers": 25,
+            PassiveSkill.HUNGER: 35,
+            PassiveSkill.BONE_SHARDS: 30,
+            PassiveSkill.UNDEAD_HORDE: 45,
+            PassiveSkill.BURNING_BONES: 40,
+            PassiveSkill.GRAVE_CHILL: 35,
+            PassiveSkill.BONE_FRAGMENTS: 30,
+            PassiveSkill.BONE_SABERS: 25,
         }
         return costs.get(skill_name, 30)
     
@@ -84,7 +84,7 @@ class SummonSkeleton(Skill):
             skeleton = self.create_summon(caster)
             
             # Check for Undead Horde upgrade (summons 2 skeletons instead of 1)
-            num_skeletons = 2 if self._caster_has_passive_skill(caster, "undead_horde") else 1
+            num_skeletons = 2 if self._caster_has_passive_skill(caster, PassiveSkill.UNDEAD_HORDE) else 1
             
             for i in range(num_skeletons):
                 if i > 0:
@@ -113,26 +113,26 @@ class SummonSkeleton(Skill):
         skeleton.armor = 20
         return skeleton
     
-    def _caster_has_passive_skill(self, caster, skill_name: str) -> bool:
+    def _caster_has_passive_skill(self, caster, skill_enum: PassiveSkill) -> bool:
         """Check if caster has a specific passive skill"""
         for passive in caster.passive_skills:
-            if passive.name.lower().replace(" ", "_") == skill_name.lower():
+            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_enum:
                 return True
         return False
     
     def apply_skeleton_upgrades(self, caster, skeleton):
         """Apply passive skill upgrades to summoned skeletons"""
         # Bone Sabers - increased melee damage
-        if self._caster_has_passive_skill(caster, "bone_sabers"):
+        if self._caster_has_passive_skill(caster, PassiveSkill.BONE_SABERS):
             skeleton.attack_damage += 15
             
         # Hunger - add life drain spell
-        if self._caster_has_passive_skill(caster, "hunger"):
+        if self._caster_has_passive_skill(caster, PassiveSkill.HUNGER):
             hunger_spell = LifeDrainSpell()
             skeleton.set_spell(hunger_spell)
             
         # Burning Bones - add fire aura
-        if self._caster_has_passive_skill(caster, "burning_bones"):
+        if self._caster_has_passive_skill(caster, PassiveSkill.BURNING_BONES):
             fire_aura = BurningBonesAura()
             skeleton.add_passive_skill(fire_aura)
             # Visual feedback that skeleton has fire aura
@@ -144,6 +144,7 @@ class Hunger(Skill):
     def __init__(self):
         super().__init__("Hunger", "Summoned skeletons gain a ranged life drain spell that deals 80 damage and heals for 50% of damage dealt")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.HUNGER
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -154,6 +155,7 @@ class BoneShards(Skill):
     def __init__(self):
         super().__init__("Bone Shards", "On death, summoned skeletons shoot bone shards at the 3 nearest enemies dealing 120 physical damage each")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.BONE_SHARDS
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -184,6 +186,7 @@ class UndeadHorde(Skill):
     def __init__(self):
         super().__init__("Undead Horde", "Summons 2 skeletons instead of 1")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.UNDEAD_HORDE
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -194,6 +197,7 @@ class BurningBones(Skill):
     def __init__(self):
         super().__init__("Burning Bones", "Summoned Skeletons shoot 3 fire projectiles (25 damage each) at enemies within 3 tiles every second")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.BURNING_BONES
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -245,6 +249,7 @@ class GraveChill(Skill):
     def __init__(self):
         super().__init__("Grave Chill", "When an enemy unit dies, deal ice damage equal to 10% of that enemy's max HP to a random enemy within 3 tiles")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.GRAVE_CHILL
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -277,6 +282,7 @@ class BoneFragments(Skill):
     def __init__(self):
         super().__init__("Bone Fragments", "Summoned Skeletons spawn bone fragments on death (150 HP, 20 damage) which are smaller undead minions")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.BONE_FRAGMENTS
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -310,6 +316,7 @@ class BoneSabers(Skill):
     def __init__(self):
         super().__init__("Bone Sabers", "Skeletons gain +15 attack damage")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.BONE_SABERS
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -338,22 +345,27 @@ class LifeDrainSpell(Skill):
 
 
 
-def create_necromancer_skill(skill_name: str) -> Skill:
+def create_necromancer_skill(skill_name) -> Skill:
     """Create necromancer-specific skills"""
     skill_classes = {
         # Active skill (only one)
         "summon_skeleton": SummonSkeleton,
         # Passive skills
-        "hunger": Hunger,
-        "bone_shards": BoneShards,
-        "undead_horde": UndeadHorde,
-        "burning_bones": BurningBones,
-        "grave_chill": GraveChill,
-        "bone_fragments": BoneFragments,
-        "bone_sabers": BoneSabers,
+        PassiveSkill.HUNGER: Hunger,
+        PassiveSkill.BONE_SHARDS: BoneShards,
+        PassiveSkill.UNDEAD_HORDE: UndeadHorde,
+        PassiveSkill.BURNING_BONES: BurningBones,
+        PassiveSkill.GRAVE_CHILL: GraveChill,
+        PassiveSkill.BONE_FRAGMENTS: BoneFragments,
+        PassiveSkill.BONE_SABERS: BoneSabers,
     }
     
-    skill_class = skill_classes.get(skill_name.lower())
+    # Handle both string and enum inputs for backwards compatibility
+    if isinstance(skill_name, str):
+        skill_class = skill_classes.get(skill_name.lower())
+    else:
+        skill_class = skill_classes.get(skill_name)
+        
     if skill_class:
         return skill_class()
     return None

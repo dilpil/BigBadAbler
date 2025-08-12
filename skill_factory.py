@@ -5,9 +5,10 @@ This replaces content/skills.py and provides a centralized way to create skills.
 
 from skill import Skill
 
-def create_skill(skill_name: str) -> Skill:
+def create_skill(skill_name) -> Skill:
     """Create any skill by name, routing to the appropriate unit-specific factory"""
-    skill_name = skill_name.lower()
+    # Don't modify the skill_name - pass it as-is to the unit-specific factories
+    # They will handle both string and enum types
     
     # Try necromancer skills first
     try:

@@ -144,16 +144,16 @@ class Game:
     def _add_passive_skill_to_unit(self, unit, skill_name):
         """Add a passive skill to a unit"""
         # Import the appropriate skill creation function based on unit type
-        if unit.unit_type.value == "necromancer":
+        if unit.unit_type == UnitType.NECROMANCER:
             from content.units.necromancer import create_necromancer_skill
             skill = create_necromancer_skill(skill_name)
-        elif unit.unit_type.value == "paladin":
+        elif unit.unit_type == UnitType.PALADIN:
             from content.units.paladin import create_paladin_skill
             skill = create_paladin_skill(skill_name)
-        elif unit.unit_type.value == "pyromancer":
+        elif unit.unit_type == UnitType.PYROMANCER:
             from content.units.pyromancer import create_pyromancer_skill
             skill = create_pyromancer_skill(skill_name)
-        elif unit.unit_type.value == "berserker":
+        elif unit.unit_type == UnitType.BERSERKER:
             from content.units.berserker import create_berserker_skill
             skill = create_berserker_skill(skill_name)
         else:
@@ -213,9 +213,13 @@ class Game:
         if self.gold < cost:
             return False
             
-        # Check if unit already has this passive skill
+        # Check if unit already has this passive skill (handle both string and enum)
         for passive in unit.passive_skills:
-            if passive.name.lower().replace(" ", "_") == skill_name.lower():
+            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_name:
+                return False
+            elif hasattr(skill_name, 'value') and passive.name.lower().replace(" ", "_") == skill_name.value:
+                return False
+            elif isinstance(skill_name, str) and passive.name.lower().replace(" ", "_") == skill_name.lower():
                 return False
                 
         skill = self.create_skill(skill_name)

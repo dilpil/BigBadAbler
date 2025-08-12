@@ -64,6 +64,7 @@ class PyUI:
             'skeleton': (150, 150, 150),
             'panel_bg': (30, 10, 50),
             'panel_border': (100, 50, 150),
+            'panel_flash_red': (255, 50, 50),
             # Item colors
             'sword': (200, 50, 50),      # Red
             'staff': (100, 50, 200),      # Purple
@@ -99,6 +100,8 @@ class PyUI:
         self.tooltip = None
         self.shop_hover_unit = None
         self.shop_hover_ability = None
+        self.shop_flash_timer = 0
+        self.shop_flash_duration = 0.3
         self.selected_item = None
         self.selected_item_index = None
         self.hovered_tile = None  # (x, y) of tile being hovered over
@@ -161,6 +164,12 @@ class PyUI:
         return self.colors.get(item_name.lower(), (100, 100, 100))
         
     def handle_event(self, event):
+        # During POST_COMBAT phase, any key press or mouse click ends it
+        if self.game.phase == GamePhase.POST_COMBAT:
+            if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                self.game.end_combat()
+                return
+        
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.handle_click(event.pos)
@@ -242,6 +251,11 @@ class PyUI:
         if self.selected_item:
             self.selected_item = None
             self.selected_item_index = None
+            return
+        
+        # Close shop if it's open
+        if self.shop_open != ShopType.NONE:
+            self.shop_open = ShopType.NONE
             return
             
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
@@ -342,11 +356,14 @@ class PyUI:
             y = shop_y + 80 + (i // cols) * 120
             
             if x <= pos[0] <= x + 100 and y <= pos[1] <= y + 100:
-                cost = get_unit_cost(unit_type)
-                if self.game.gold >= cost:
-                    if self.game.purchase_unit(unit_type, self.shop_position[0], self.shop_position[1]):
-                        pass  # Unit already has default skill set on creation
-                self.shop_open = ShopType.NONE
+                # Try to purchase the unit
+                success = self.game.purchase_unit(unit_type, self.shop_position[0], self.shop_position[1])
+                if success:
+                    # Purchase successful - close shop
+                    self.shop_open = ShopType.NONE
+                else:
+                    # Purchase failed - flash red and keep shop open
+                    self.shop_flash_timer = self.shop_flash_duration
                 return
     
     def _handle_upgrade_shop_click(self, pos):
@@ -366,8 +383,13 @@ class PyUI:
         # Filter out skills the unit already has
         available_skills = []
         for skill_name in passive_skills:
-            already_has = any(p.name.lower().replace(" ", "_") == skill_name.lower() 
-                            for p in self.selected_unit.passive_skills)
+            # Check if unit already has this skill (handle both string and enum)
+            already_has = any(
+                (hasattr(p, 'skill_enum') and p.skill_enum == skill_name) or
+                (hasattr(skill_name, 'value') and p.name.lower().replace(" ", "_") == skill_name.value) or
+                (isinstance(skill_name, str) and p.name.lower().replace(" ", "_") == skill_name.lower())
+                for p in self.selected_unit.passive_skills
+            )
             if not already_has:
                 available_skills.append(skill_name)
         
@@ -440,8 +462,13 @@ class PyUI:
         # Filter out skills the unit already has
         available_skills = []
         for skill_name in passive_skills:
-            already_has = any(p.name.lower().replace(" ", "_") == skill_name.lower() 
-                            for p in self.selected_unit.passive_skills)
+            # Check if unit already has this skill (handle both string and enum)
+            already_has = any(
+                (hasattr(p, 'skill_enum') and p.skill_enum == skill_name) or
+                (hasattr(skill_name, 'value') and p.name.lower().replace(" ", "_") == skill_name.value) or
+                (isinstance(skill_name, str) and p.name.lower().replace(" ", "_") == skill_name.lower())
+                for p in self.selected_unit.passive_skills
+            )
             if not already_has:
                 available_skills.append(skill_name)
         
@@ -485,8 +512,19 @@ class PyUI:
         grid_x = (x - self.board_x) // self.tile_size
         grid_y = (y - self.board_y) // self.tile_size
         return grid_x, grid_y
+    
+    def _blend_colors(self, color1, color2, blend_factor):
+        """Blend two colors together. blend_factor 0 = color1, 1 = color2"""
+        r = int(color1[0] * (1 - blend_factor) + color2[0] * blend_factor)
+        g = int(color1[1] * (1 - blend_factor) + color2[1] * blend_factor) 
+        b = int(color1[2] * (1 - blend_factor) + color2[2] * blend_factor)
+        return (r, g, b)
         
     def update(self, dt):
+        # Update shop flash timer
+        if self.shop_flash_timer > 0:
+            self.shop_flash_timer -= dt
+            
         # Track unit position changes for smooth movement
         if self.game.phase in [GamePhase.COMBAT, GamePhase.POST_COMBAT]:
             for unit in self.game.board.get_all_units():
@@ -1058,11 +1096,17 @@ class PyUI:
         shop_x = self.width // 2 - shop_width // 2
         shop_y = self.height // 2 - shop_height // 2
         
-        # Shop background
-        pygame.draw.rect(self.screen, self.colors['panel_bg'], 
-                       (shop_x, shop_y, shop_width, shop_height))
-        pygame.draw.rect(self.screen, self.colors['panel_border'], 
-                       (shop_x, shop_y, shop_width, shop_height), 3)
+        # Shop background (with optional red flash effect)
+        bg_color = self.colors['panel_bg']
+        border_color = self.colors['panel_border']
+        if self.shop_flash_timer > 0:
+            # Mix red flash color with normal colors
+            flash_intensity = self.shop_flash_timer / self.shop_flash_duration
+            bg_color = self._blend_colors(bg_color, self.colors['panel_flash_red'], flash_intensity * 0.4)
+            border_color = self._blend_colors(border_color, self.colors['panel_flash_red'], flash_intensity * 0.6)
+        
+        pygame.draw.rect(self.screen, bg_color, (shop_x, shop_y, shop_width, shop_height))
+        pygame.draw.rect(self.screen, border_color, (shop_x, shop_y, shop_width, shop_height), 3)
         
         # Title
         title = self.fonts['large'].render("CHOOSE A UNIT", True, self.colors['text'])
@@ -1075,7 +1119,7 @@ class PyUI:
             x = shop_x + 40 + (i % cols) * 110
             y = shop_y + 80 + (i // cols) * 120
             
-            cost = get_unit_cost(unit_type)
+            cost = self.game.get_unit_cost(unit_type)
             can_afford = self.game.gold >= cost
             color = self.colors['button'] if can_afford else self.colors['button_disabled']
             
@@ -1173,8 +1217,13 @@ class PyUI:
         # Filter out skills the unit already has
         available_skills = []
         for skill_name in passive_skills:
-            already_has = any(p.name.lower().replace(" ", "_") == skill_name.lower() 
-                            for p in self.selected_unit.passive_skills)
+            # Check if unit already has this skill (handle both string and enum)
+            already_has = any(
+                (hasattr(p, 'skill_enum') and p.skill_enum == skill_name) or
+                (hasattr(skill_name, 'value') and p.name.lower().replace(" ", "_") == skill_name.value) or
+                (isinstance(skill_name, str) and p.name.lower().replace(" ", "_") == skill_name.lower())
+                for p in self.selected_unit.passive_skills
+            )
             if not already_has:
                 available_skills.append(skill_name)
         
@@ -1234,7 +1283,11 @@ class PyUI:
                 self.screen.blit(gradient_surface, (x, y))
             
             # Skill name (larger and more prominent)
-            display_name = skill_name.replace("_", " ").title()
+            # Handle both string and enum types
+            if hasattr(skill_name, 'value'):
+                display_name = skill_name.value.replace("_", " ").title()
+            else:
+                display_name = str(skill_name).replace("_", " ").title()
             text = self.fonts['medium'].render(display_name, True, self.colors['text'])
             self.screen.blit(text, (x + 10, y + 10))
             
@@ -1518,7 +1571,11 @@ class PyUI:
             return ""
             
         cost = self.selected_unit.get_passive_skill_cost(skill_name)
-        display_name = skill_name.replace("_", " ").title()
+        # Handle both string and enum types
+        if hasattr(skill_name, 'value'):
+            display_name = skill_name.value.replace("_", " ").title()
+        else:
+            display_name = str(skill_name).replace("_", " ").title()
         
         lines = [
             f"{display_name}",

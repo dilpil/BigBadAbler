@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from unit import Unit, UnitType
+from unit import Unit, UnitType, PassiveSkill
 from skill import Skill
 from status_effect import StatModifierEffect
 
@@ -32,21 +32,21 @@ class Paladin(Unit):
     def get_available_passive_skills(self) -> list:
         """Get list of available passive skills for this unit"""
         return [
-            "smite",
-            "protection",
-            "lay_hands_on",
-            "holy_thunder",
-            "healing_aura"
+            PassiveSkill.SMITE,
+            PassiveSkill.PROTECTION,
+            PassiveSkill.LAY_HANDS_ON,
+            PassiveSkill.HOLY_THUNDER,
+            PassiveSkill.HEALING_AURA
         ]
     
-    def get_passive_skill_cost(self, skill_name: str) -> int:
+    def get_passive_skill_cost(self, skill_name) -> int:
         """Get the cost of a passive skill"""
         costs = {
-            "smite": 40,
-            "protection": 45,
-            "lay_hands_on": 35,
-            "holy_thunder": 30,
-            "healing_aura": 35,
+            PassiveSkill.SMITE: 40,
+            PassiveSkill.PROTECTION: 45,
+            PassiveSkill.LAY_HANDS_ON: 35,
+            PassiveSkill.HOLY_THUNDER: 30,
+            PassiveSkill.HEALING_AURA: 35,
         }
         return costs.get(skill_name, 30)
     
@@ -90,7 +90,7 @@ class HolyAura(Skill):
                     caster.board.add_visual_effect(VisualEffectType.HOLY, ally.x, ally.y)
         
         # Smite passive - damage enemies in range
-        if self._caster_has_passive_skill(caster, "smite"):
+        if self._caster_has_passive_skill(caster, PassiveSkill.SMITE):
             enemies = caster.board.get_units_in_range(caster.x, caster.y, self.range, "enemy" if caster.team == "player" else "player")
             for enemy in enemies:
                 if enemy.is_alive():
@@ -99,7 +99,7 @@ class HolyAura(Skill):
                         caster.board.add_visual_effect(VisualEffectType.HOLY, enemy.x, enemy.y)
         
         # Lay Hands On passive - extra heal to most wounded adjacent ally
-        if self._caster_has_passive_skill(caster, "lay_hands_on"):
+        if self._caster_has_passive_skill(caster, PassiveSkill.LAY_HANDS_ON):
             adjacent_allies = caster.board.get_units_in_range(caster.x, caster.y, 1, caster.team)
             adjacent_allies = [ally for ally in adjacent_allies if ally.is_alive() and ally != caster and ally.hp < ally.max_hp]
             if adjacent_allies:
@@ -109,10 +109,10 @@ class HolyAura(Skill):
                 if caster.board:
                     caster.board.add_visual_effect(VisualEffectType.HOLY, most_wounded.x, most_wounded.y)
     
-    def _caster_has_passive_skill(self, caster, skill_name: str) -> bool:
+    def _caster_has_passive_skill(self, caster, skill_enum: PassiveSkill) -> bool:
         """Check if caster has a specific passive skill"""
         for passive in caster.passive_skills:
-            if passive.name.lower().replace(" ", "_") == skill_name.lower():
+            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_enum:
                 return True
         return False
 
@@ -122,6 +122,7 @@ class Smite(Skill):
     def __init__(self):
         super().__init__("Smite", "Holy Heal also deals 200 magical damage to enemies in range")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.SMITE
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -132,6 +133,7 @@ class Protection(Skill):
     def __init__(self):
         super().__init__("Protection", "Provides +50 armor and +50 magic resist to allies within 4 tiles")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.PROTECTION
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -161,6 +163,7 @@ class LayHandsOn(Skill):
     def __init__(self):
         super().__init__("Lay Hands On", "On cast, heals the most wounded adjacent ally for an additional 400 HP")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.LAY_HANDS_ON
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -171,6 +174,7 @@ class HolyThunder(Skill):
     def __init__(self):
         super().__init__("Holy Thunder", "Melee attacks deal an additional 65 lightning damage")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.HOLY_THUNDER
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -189,6 +193,7 @@ class HealingAura(Skill):
     def __init__(self):
         super().__init__("Healing Aura", "Passively heals all allies within 4 tiles for 20 HP every 0.5 seconds")
         self.is_passive = True
+        self.skill_enum = PassiveSkill.HEALING_AURA
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
@@ -211,18 +216,23 @@ class HealingAura(Skill):
                     ally.heal(self.heal_amount, self.owner)
 
 
-def create_paladin_skill(skill_name: str) -> Skill:
+def create_paladin_skill(skill_name) -> Skill:
     """Create paladin-specific skills"""
     skill_classes = {
         "holy_heal": HolyAura,
-        "smite": Smite,
-        "protection": Protection,
-        "lay_hands_on": LayHandsOn,
-        "holy_thunder": HolyThunder,
-        "healing_aura": HealingAura,
+        PassiveSkill.SMITE: Smite,
+        PassiveSkill.PROTECTION: Protection,
+        PassiveSkill.LAY_HANDS_ON: LayHandsOn,
+        PassiveSkill.HOLY_THUNDER: HolyThunder,
+        PassiveSkill.HEALING_AURA: HealingAura,
     }
     
-    skill_class = skill_classes.get(skill_name.lower())
+    # Handle both string and enum inputs for backwards compatibility
+    if isinstance(skill_name, str):
+        skill_class = skill_classes.get(skill_name.lower())
+    else:
+        skill_class = skill_classes.get(skill_name)
+        
     if skill_class:
         return skill_class()
     return None
