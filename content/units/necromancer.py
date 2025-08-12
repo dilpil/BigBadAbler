@@ -133,6 +133,8 @@ class SummonSkeleton(Skill):
         if self._caster_has_passive_skill(caster, "burning_bones"):
             fire_aura = BurningBonesAura()
             skeleton.add_passive_skill(fire_aura)
+            # Visual feedback that skeleton has fire aura
+            caster.board.add_visual_effect(VisualEffectType.FIRE, skeleton.x, skeleton.y)
 
 
 class Hunger(Skill):
@@ -186,9 +188,9 @@ class UndeadHorde(Skill):
 
 
 class BurningBones(Skill):
-    """Summoned Skeletons have a radius 2 fire damage aura"""
+    """Summoned Skeletons shoot fire projectiles at nearby enemies"""
     def __init__(self):
-        super().__init__("Burning Bones", "Summoned Skeletons have a radius 2 fire damage aura")
+        super().__init__("Burning Bones", "Summoned Skeletons shoot 3 fire projectiles at enemies within 3 tiles every second")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -198,14 +200,15 @@ class BurningBones(Skill):
 class BurningBonesAura(Skill):
     """Fire aura that gets applied to skeletons"""
     def __init__(self):
-        super().__init__("Burning Bones Aura", "Deals fire damage to nearby enemies")
+        super().__init__("Burning Bones Aura", "Shoots fire projectiles at nearby enemies")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
         self.current_mana = 0
-        self.damage = 8
-        self.range = 2
+        self.damage = 3  # Lower damage per projectile
+        self.range = 3  # Range to find targets
         self.tick_timer = 0
+        self.tick_interval = 1.0  # Shoot projectiles every 1 second
         
     def update(self, dt: float):
         super().update(dt)
@@ -213,12 +216,26 @@ class BurningBonesAura(Skill):
             return
             
         self.tick_timer += dt
-        if self.tick_timer >= 1.0:
-            self.tick_timer -= 1.0
-            enemies = self.get_targets_in_area(self.owner, self.owner.x, self.owner.y, self.range, "enemy")
-            for enemy in enemies:
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            
+            # Find up to 3 enemies within range
+            enemies = self.get_valid_targets(self.owner, "enemy", max_range=self.range)
+            
+            # Shoot up to 3 fire projectiles
+            for i, enemy in enumerate(enemies[:3]):
                 if enemy.is_alive():
-                    enemy.take_damage(self.damage, "magical", self.owner)
+                    # Create fire projectile
+                    projectile = Projectile(self.owner, enemy, speed=8.0)
+                    projectile.damage = self.damage
+                    projectile.damage_type = "fire"
+                    projectile.on_hit_callback = lambda tgt, dmg=self.damage: tgt.take_damage(dmg, "fire", self.owner)
+                    
+                    # Add projectile to board
+                    if self.owner.board:
+                        self.owner.board.add_projectile(projectile)
+                        # Visual effect at launch position
+                        self.owner.board.add_visual_effect(VisualEffectType.FIRE, self.owner.x, self.owner.y)
 
 
 class GraveChill(Skill):

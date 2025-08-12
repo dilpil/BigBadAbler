@@ -137,7 +137,7 @@ class Unit:
             
         if damage_type == "physical":
             mitigation = 100 / (100 + self.armor)
-        elif damage_type == "magical":
+        elif damage_type in ["magical", "fire", "ice"]:
             mitigation = 100 / (100 + self.magic_resist)
         else:
             mitigation = 1.0
@@ -154,7 +154,11 @@ class Unit:
         if damage_type == "physical":
             damage_color = (255, 255, 255)  # White for physical damage
         elif damage_type == "magical":
-            damage_color = (173, 216, 230)  # Light blue for magical damage
+            damage_color = (100, 150, 255)  # Blue for magical damage
+        elif damage_type == "fire":
+            damage_color = (255, 100, 50)  # Orange for fire damage
+        elif damage_type == "ice":
+            damage_color = (150, 200, 255)  # Light blue for ice damage
         else:
             damage_color = (255, 255, 0)  # Yellow for other damage types
             
@@ -361,9 +365,9 @@ class Unit:
         self.hp = self.max_hp
         self.status_effects.clear()
         
-        # Reset spell mana
+        # Reset spell mana to full
         if self.spell:
-            self.spell.current_mana = 0
+            self.spell.current_mana = self.spell.mana_cost
             
         # Reset passive skills (they don't have mana but may need reset)
         for passive in self.passive_skills:
@@ -398,7 +402,7 @@ class Unit:
         self.spell = spell
         if spell:
             spell.owner = self
-            spell.current_mana = 0
+            spell.current_mana = spell.mana_cost  # Start with full mana
         return True
     
     def add_passive_skill(self, skill):

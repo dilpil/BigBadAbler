@@ -831,6 +831,8 @@ class PyUI:
             if hasattr(projectile, 'damage_type'):
                 if projectile.damage_type == "magical":
                     color = (255, 100, 255)
+                elif projectile.damage_type == "fire":
+                    color = (255, 100, 50)  # Fire orange
                 else:
                     color = (255, 255, 100)
             else:
