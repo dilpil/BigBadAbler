@@ -44,13 +44,16 @@ class Game:
         
         # Track total gold earned for enemy team budget
         self.total_gold_earned = 0
+        # Track units purchased for escalating costs
+        self.units_purchased_this_game = 0
         
         self.message_log = []
         
     def start_new_round(self):
         self.round += 1
-        self.gold = 100
-        self.total_gold_earned += 100  # Track total gold earned
+        gold_gained = 50 if self.round > 1 else 100  # First round gets 100, subsequent rounds get 50
+        self.gold = gold_gained
+        self.total_gold_earned += gold_gained  # Track total gold earned
         self.phase = GamePhase.SHOPPING
         self.combat_time = 0
         
@@ -82,42 +85,49 @@ class Game:
         
         self.enemy_team = []
         remaining_budget = enemy_budget
+        enemy_units_purchased = 0  # Track for escalating unit costs
         
-        # Phase 1: Buy units (spend at least half the budget)
+        # Phase 1: Buy units using escalating costs (40, 60, 80, etc.)
         unit_types = get_available_units()
-        unit_cost = 50  # All units cost 50 gold
         
-        # Keep buying units while we have budget and haven't reached the minimum spend or unit limit
-        while len(self.enemy_team) < 6 and remaining_budget >= unit_cost:
-            # If we've spent enough on units and have less than min budget left, stop buying units
-            units_spent = (len(self.enemy_team) + 1) * unit_cost
-            if units_spent > min_unit_budget and (enemy_budget - remaining_budget + unit_cost) >= min_unit_budget:
-                # Check if we should stop buying units to save budget for items/passives
-                if random.random() < 0.3:  # 30% chance to stop early if minimum is met
-                    break
+        while len(self.enemy_team) < 6:
+            # Calculate current unit cost using escalating formula
+            current_unit_cost = 40 + (enemy_units_purchased * 20)
+            
+            if remaining_budget < current_unit_cost:
+                break
+                
+            # Check if we should stop buying units to save budget for upgrades
+            if (enemy_budget - remaining_budget) >= min_unit_budget and random.random() < 0.4:
+                break
             
             unit_type = random.choice(unit_types)
             unit = create_unit(unit_type)
             if unit:
                 self.enemy_team.append(unit)
-                remaining_budget -= unit_cost
+                remaining_budget -= current_unit_cost
+                enemy_units_purchased += 1
         
         # Phase 2: Buy passive skills and items with remaining budget
         all_items = get_all_items()
         
         for unit in self.enemy_team:
-            # Try to buy passive skills
+            # Try to buy passive skills using escalating costs (30, 50, 70, etc.)
             available_passives = unit.get_available_passive_skills()
             if available_passives:
-                # Try to buy 1-3 passive skills per unit
-                num_passives_to_try = min(random.randint(1, 3), len(available_passives))
                 random.shuffle(available_passives)
                 
-                for passive_name in available_passives[:num_passives_to_try]:
-                    passive_cost = unit.get_passive_skill_cost(passive_name)
-                    if remaining_budget >= passive_cost:
+                for passive_name in available_passives:
+                    # Calculate escalating passive cost
+                    passive_cost = 30 + (len(unit.passive_skills) * 20)
+                    
+                    if remaining_budget >= passive_cost and len(unit.passive_skills) < 5:  # Max 5 passives
                         self._add_passive_skill_to_unit(unit, passive_name)
                         remaining_budget -= passive_cost
+                    
+                    # 60% chance to stop after each purchase to spread upgrades across units
+                    if random.random() < 0.6:
+                        break
             
             # Try to buy items (max 3 per unit)
             num_items_to_try = min(random.randint(0, 3), 3 - len(unit.items))
@@ -167,6 +177,7 @@ class Game:
             
         if self.board.add_unit(unit, x, y, "player"):
             self.gold -= cost
+            self.units_purchased_this_game += 1  # Track for escalating costs
             self.owned_units.append(unit)
             unit.board = self.board
             unit.original_x = x
@@ -197,7 +208,8 @@ class Game:
     
     def purchase_passive_skill(self, unit: Unit, skill_name: str) -> bool:
         """Purchase a passive skill for a unit"""
-        cost = unit.get_passive_skill_cost(skill_name)
+        # Escalating cost: 30 + 20 for each existing passive
+        cost = 30 + (len(unit.passive_skills) * 20)
         if self.gold < cost:
             return False
             
@@ -348,8 +360,8 @@ class Game:
         self.start_new_round()
     
     def get_unit_cost(self, unit_type: UnitType) -> int:
-        from content.unit_registry import get_unit_cost
-        return get_unit_cost(unit_type)
+        # Escalating costs: 40, 60, 80, 100, etc.
+        return 40 + (self.units_purchased_this_game * 20)
     
     def get_skill_cost(self, skill_name: str) -> int:
         return 25
