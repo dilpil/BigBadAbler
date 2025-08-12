@@ -110,17 +110,17 @@ class HolyAura(Skill):
                     caster.board.add_visual_effect(VisualEffectType.HOLY, most_wounded.x, most_wounded.y)
     
     def _caster_has_passive_skill(self, caster, skill_name: str) -> bool:
-        \"\"\"Check if caster has a specific passive skill\"\"\"
+        """Check if caster has a specific passive skill"""
         for passive in caster.passive_skills:
-            if passive.name.lower().replace(\" \", \"_\") == skill_name.lower():
+            if passive.name.lower().replace(" ", "_") == skill_name.lower():
                 return True
         return False
 
 
 class Smite(Skill):
-    \"\"\"Holy Heal also damages enemies in range\"\"\"
+    """Holy Heal also damages enemies in range"""
     def __init__(self):
-        super().__init__(\"Smite\", \"Holy Heal also deals 200 magical damage to enemies in range\")
+        super().__init__("Smite", "Holy Heal also deals 200 magical damage to enemies in range")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -128,9 +128,9 @@ class Smite(Skill):
 
 
 class Protection(Skill):
-    \"\"\"Paladin provides armor and magic resist aura to nearby allies\"\"\"
+    """Paladin provides armor and magic resist aura to nearby allies"""
     def __init__(self):
-        super().__init__(\"Protection\", \"Provides +50 armor and +50 magic resist to allies within 4 tiles\")
+        super().__init__("Protection", "Provides +50 armor and +50 magic resist to allies within 4 tiles")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -149,17 +149,17 @@ class Protection(Skill):
         for ally in allies:
             if ally.is_alive():
                 # Check if ally already has protection buff
-                has_protection = any(e.name == \"Protection\" for e in ally.status_effects)
+                has_protection = any(e.name == "Protection" for e in ally.status_effects)
                 if not has_protection:
-                    effect = StatModifierEffect(\"Protection\", 2.0, {\"armor\": self.armor_bonus, \"magic_resist\": self.mr_bonus})
+                    effect = StatModifierEffect("Protection", 2.0, {"armor": self.armor_bonus, "magic_resist": self.mr_bonus})
                     effect.source = self.owner
                     ally.add_status_effect(effect)
 
 
 class LayHandsOn(Skill):
-    \"\"\"Extra healing for most wounded adjacent ally\"\"\"
+    """Extra healing for most wounded adjacent ally"""
     def __init__(self):
-        super().__init__(\"Lay Hands On\", \"On cast, heals the most wounded adjacent ally for an additional 400 HP\")
+        super().__init__("Lay Hands On", "On cast, heals the most wounded adjacent ally for an additional 400 HP")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -167,9 +167,9 @@ class LayHandsOn(Skill):
 
 
 class HolyThunder(Skill):
-    \"\"\"Melee attacks deal bonus lightning damage\"\"\"
+    """Melee attacks deal bonus lightning damage"""
     def __init__(self):
-        super().__init__(\"Holy Thunder\", \"Melee attacks deal an additional 65 lightning damage\")
+        super().__init__("Holy Thunder", "Melee attacks deal an additional 65 lightning damage")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0
@@ -177,17 +177,17 @@ class HolyThunder(Skill):
         self.bonus_damage = 65
         
     def on_event(self, event_type: str, **kwargs):
-        if event_type == \"unit_attack\" and \"attacker\" in kwargs and \"target\" in kwargs:
-            attacker = kwargs[\"attacker\"]
-            target = kwargs[\"target\"]
+        if event_type == "unit_attack" and "attacker" in kwargs and "target" in kwargs:
+            attacker = kwargs["attacker"]
+            target = kwargs["target"]
             if attacker == self.owner and attacker.attack_range == 1:  # Melee attack
-                target.take_damage(self.bonus_damage, \"lightning\", attacker)
+                target.take_damage(self.bonus_damage, "lightning", attacker)
 
 
 class HealingAura(Skill):
-    \"\"\"Passive healing aura for nearby allies\"\"\"
+    """Passive healing aura for nearby allies"""
     def __init__(self):
-        super().__init__(\"Healing Aura\", \"Passively heals all allies within 4 tiles for 20 HP every 0.5 seconds\")
+        super().__init__("Healing Aura", "Passively heals all allies within 4 tiles for 20 HP every 0.5 seconds")
         self.is_passive = True
         self.cast_time = None
         self.mana_cost = 0

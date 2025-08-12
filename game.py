@@ -42,11 +42,15 @@ class Game:
         self.post_combat_duration = 4.0
         self.combat_result = None  # "victory" or "defeat"
         
+        # Track total gold earned for enemy team budget
+        self.total_gold_earned = 0
+        
         self.message_log = []
         
     def start_new_round(self):
         self.round += 1
         self.gold = 100
+        self.total_gold_earned += 100  # Track total gold earned
         self.phase = GamePhase.SHOPPING
         self.combat_time = 0
         
@@ -66,18 +70,87 @@ class Game:
     
     def generate_enemy_team(self):
         from content.unit_registry import create_unit, get_available_units
+        from content.items import get_all_items, create_item
         import random
         
-        num_enemies = min(self.round // 3 + 2, 6)
-        unit_types = get_available_units()
+        # Enemy team gets a budget equal to total gold player has earned
+        enemy_budget = self.total_gold_earned
+        self.add_message(f"Enemy budget: {enemy_budget} gold")
+        
+        # At least half the budget must be spent on units
+        min_unit_budget = enemy_budget // 2
         
         self.enemy_team = []
-        for i in range(num_enemies):
+        remaining_budget = enemy_budget
+        
+        # Phase 1: Buy units (spend at least half the budget)
+        unit_types = get_available_units()
+        unit_cost = 50  # All units cost 50 gold
+        
+        # Keep buying units while we have budget and haven't reached the minimum spend or unit limit
+        while len(self.enemy_team) < 6 and remaining_budget >= unit_cost:
+            # If we've spent enough on units and have less than min budget left, stop buying units
+            units_spent = (len(self.enemy_team) + 1) * unit_cost
+            if units_spent > min_unit_budget and (enemy_budget - remaining_budget + unit_cost) >= min_unit_budget:
+                # Check if we should stop buying units to save budget for items/passives
+                if random.random() < 0.3:  # 30% chance to stop early if minimum is met
+                    break
+            
             unit_type = random.choice(unit_types)
             unit = create_unit(unit_type)
             if unit:
-                # Unit already has default skill set on creation
                 self.enemy_team.append(unit)
+                remaining_budget -= unit_cost
+        
+        # Phase 2: Buy passive skills and items with remaining budget
+        all_items = get_all_items()
+        
+        for unit in self.enemy_team:
+            # Try to buy passive skills
+            available_passives = unit.get_available_passive_skills()
+            if available_passives:
+                # Try to buy 1-3 passive skills per unit
+                num_passives_to_try = min(random.randint(1, 3), len(available_passives))
+                random.shuffle(available_passives)
+                
+                for passive_name in available_passives[:num_passives_to_try]:
+                    passive_cost = unit.get_passive_skill_cost(passive_name)
+                    if remaining_budget >= passive_cost:
+                        self._add_passive_skill_to_unit(unit, passive_name)
+                        remaining_budget -= passive_cost
+            
+            # Try to buy items (max 3 per unit)
+            num_items_to_try = min(random.randint(0, 3), 3 - len(unit.items))
+            for _ in range(num_items_to_try):
+                if remaining_budget <= 0:
+                    break
+                    
+                item_name = random.choice(all_items)
+                item = create_item(item_name)
+                if item and remaining_budget >= item.cost:
+                    unit.add_item(item)
+                    remaining_budget -= item.cost
+    
+    def _add_passive_skill_to_unit(self, unit, skill_name):
+        """Add a passive skill to a unit"""
+        # Import the appropriate skill creation function based on unit type
+        if unit.unit_type.value == "necromancer":
+            from content.units.necromancer import create_necromancer_skill
+            skill = create_necromancer_skill(skill_name)
+        elif unit.unit_type.value == "paladin":
+            from content.units.paladin import create_paladin_skill
+            skill = create_paladin_skill(skill_name)
+        elif unit.unit_type.value == "pyromancer":
+            from content.units.pyromancer import create_pyromancer_skill
+            skill = create_pyromancer_skill(skill_name)
+        elif unit.unit_type.value == "berserker":
+            from content.units.berserker import create_berserker_skill
+            skill = create_berserker_skill(skill_name)
+        else:
+            skill = None
+            
+        if skill and skill.is_passive:
+            unit.add_passive_skill(skill)
     
     def generate_item_shop(self):
         from content.items import generate_item_shop
