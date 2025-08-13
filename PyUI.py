@@ -35,9 +35,12 @@ class PyUI:
         self.game = Game(GameMode.ASYNC)
         self.game.ui = self  # Allow game to access UI for sound effects
         
-        self.tile_size = 60
-        self.board_x = 400  # Center horizontally: (1400 - 600) / 2
-        self.board_y = 110  # Center vertically: (900 - 600) / 2
+        self.tile_size = 75  # Increased from 60 to make units larger
+        # Recalculate board position for 8x8 grid with 75px tiles
+        board_width = 8 * 75  # 600px
+        board_height = 8 * 75  # 600px
+        self.board_x = (self.width - board_width) // 2  # 400px for 1400px screen
+        self.board_y = (self.height - board_height) // 2 - 50  # Shift up slightly to leave room for UI
         
         self.selected_unit = None
         self.dragging_unit = None
@@ -186,6 +189,28 @@ class PyUI:
     def get_item_color(self, item_name):
         """Get the color for an item"""
         return self.colors.get(item_name.lower(), (100, 100, 100))
+    
+    def _get_skill_color(self, skill_name):
+        """Get the color for a skill based on its name"""
+        # Map different skill types to different colors
+        skill_colors = {
+            # Necromancer skills - dark/purple theme
+            'hunger': (150, 0, 150),
+            'bone shards': (200, 200, 200),
+            'undead horde': (100, 50, 100),
+            'burning bones': (255, 100, 0),
+            'grave chill': (0, 150, 200),
+            'bone fragments': (180, 180, 180),
+            'bone sabers': (220, 220, 220),
+            
+            # Paladin skills - gold/holy theme
+            'smite': (255, 220, 0),
+            'protection': (200, 150, 0),
+            'lay hands on': (255, 200, 100),
+            'holy thunder': (255, 255, 150),
+            'healing aura': (150, 255, 150),
+        }
+        return skill_colors.get(skill_name.lower(), (120, 80, 140))
         
     def handle_event(self, event):
         # During POST_COMBAT phase, any key press or mouse click ends it
@@ -248,7 +273,7 @@ class PyUI:
             return
             
         grid_x, grid_y = self.screen_to_grid(x, y)
-        if 0 <= grid_x < 10 and 0 <= grid_y < 10:
+        if 0 <= grid_x < 8 and 0 <= grid_y < 8:
             unit = self.game.board.get_unit_at(grid_x, grid_y)
             if unit and unit.team == "player" and self.game.phase == GamePhase.SHOPPING:
                 # If we have a selected item, try to buy it for this unit
@@ -286,7 +311,7 @@ class PyUI:
             return
             
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
-        if 0 <= grid_x < 10 and 0 <= grid_y < 10:
+        if 0 <= grid_x < 8 and 0 <= grid_y < 8:
             unit = self.game.board.get_unit_at(grid_x, grid_y)
             if unit and unit.team == "player" and self.game.phase == GamePhase.SHOPPING:
                 self.selected_unit = unit
@@ -340,7 +365,7 @@ class PyUI:
                 return
                 
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
-        if 0 <= grid_x < 10 and 0 <= grid_y < 10:
+        if 0 <= grid_x < 8 and 0 <= grid_y < 8:
             # Track hovered tile for plus sign indicator
             self.hovered_tile = (grid_x, grid_y)
             
@@ -677,8 +702,8 @@ class PyUI:
         pygame.display.flip()
         
     def draw_board(self):
-        board_width = 10 * self.tile_size
-        board_height = 10 * self.tile_size
+        board_width = 8 * self.tile_size
+        board_height = 8 * self.tile_size
         
         # Draw board background with border
         pygame.draw.rect(self.screen, self.colors['panel_border'],
@@ -688,8 +713,8 @@ class PyUI:
                         (self.board_x - 10, self.board_y - 10, 
                          board_width + 20, board_height + 20))
         
-        # Draw grid lines
-        for i in range(11):
+        # Draw grid lines (9 lines for 8x8 grid)
+        for i in range(9):
             # Vertical lines
             x = self.board_x + i * self.tile_size
             pygame.draw.line(self.screen, self.colors['tile_border'],
@@ -700,20 +725,20 @@ class PyUI:
                            (self.board_x, y), (self.board_x + board_width, y), 1)
             
         # Draw middle divider
-        mid_x = self.board_x + 5 * self.tile_size
+        mid_x = self.board_x + 4 * self.tile_size
         pygame.draw.line(self.screen, self.colors['player_border'],
                        (mid_x, self.board_y), (mid_x, self.board_y + board_height), 3)
         
         # Draw tiles with different colors for each side
-        for x in range(10):
-            for y in range(10):
+        for x in range(8):
+            for y in range(8):
                 tile_x = self.board_x + x * self.tile_size
                 tile_y = self.board_y + y * self.tile_size
                 
                 # Different colors for player and enemy sides
-                if x < 5:
+                if x < 4:  # Left half for players (0-3)
                     color = self.colors['tile_player']
-                else:
+                else:      # Right half for enemies (4-7)
                     color = self.colors['tile_enemy']
                     
                 mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -834,30 +859,52 @@ class PyUI:
                                          y + offset_y + self.tile_size // 2 - 5))
         self.screen.blit(text, text_rect)
         
-        # Draw item indicators in upper left
+        # Draw items as squares stacked vertically on left side
         if unit.items:
             for i, item in enumerate(unit.items[:3]):  # Max 3 items
-                item_x = x + offset_x + 4 + i * 14
-                item_y = y + offset_y + 4
+                item_x = x + offset_x + 2  # Left side
+                item_y = y + offset_y + 4 + i * 16  # Stacked vertically
                 item_color = self.get_item_color(item.name)
                 
-                # Draw colored square
-                pygame.draw.rect(self.screen, item_color, (item_x, item_y, 12, 12))
-                pygame.draw.rect(self.screen, (255, 255, 255), (item_x, item_y, 12, 12), 1)
+                # Draw colored square (slightly larger)
+                pygame.draw.rect(self.screen, item_color, (item_x, item_y, 14, 14))
+                pygame.draw.rect(self.screen, (255, 255, 255), (item_x, item_y, 14, 14), 1)
                 
                 # Draw item letter
                 letter = self.get_item_letter(item.name)
                 text = self.fonts['tiny'].render(letter, True, self.colors['text'])
-                text_rect = text.get_rect(center=(item_x + 6, item_y + 6))
+                text_rect = text.get_rect(center=(item_x + 7, item_y + 7))
                 self.screen.blit(text, text_rect)
         
-        # Draw status effect indicators below items
+        # Draw passive skills as squares stacked vertically on right side
+        if unit.passive_skills:
+            for i, skill in enumerate(unit.passive_skills[:5]):  # Max 5 skills
+                skill_x = x + offset_x + self.tile_size - 16  # Right side
+                skill_y = y + offset_y + 4 + i * 16  # Stacked vertically
+                skill_color = self._get_skill_color(skill.name)
+                
+                # Draw colored square
+                pygame.draw.rect(self.screen, skill_color, (skill_x, skill_y, 14, 14))
+                pygame.draw.rect(self.screen, (255, 255, 255), (skill_x, skill_y, 14, 14), 1)
+                
+                # Draw skill letter (first letter of skill name)
+                letter = skill.name[0].upper() if skill.name else 'S'
+                text = self.fonts['tiny'].render(letter, True, self.colors['text'])
+                text_rect = text.get_rect(center=(skill_x + 7, skill_y + 7))
+                self.screen.blit(text, text_rect)
+        
+        # Draw status effects as circles above HP bar
         if unit.status_effects:
-            for i, status in enumerate(unit.status_effects[:5]):  # Max 5 shown
-                status_x = x + offset_x + 6 + i * 10  # Smaller spacing
-                status_y = y + offset_y + 22  # Below items, adjusted for smaller size
+            # Position them just above the HP bar
+            status_base_y = y + offset_y + self.tile_size - 28  # Above HP bar
+            for i, status in enumerate(unit.status_effects[:6]):  # Max 6 shown
+                status_x = x + offset_x + 8 + i * 12  # Horizontal spacing
+                status_y = status_base_y
                 status_color = (200, 100, 255) if "buff" in status.name.lower() else (255, 100, 100)
-                pygame.draw.rect(self.screen, status_color, (status_x, status_y, 8, 8))  # Smaller squares
+                
+                # Draw circle
+                pygame.draw.circle(self.screen, status_color, (status_x + 5, status_y + 5), 5)
+                pygame.draw.circle(self.screen, (255, 255, 255), (status_x + 5, status_y + 5), 5, 1)
                 
         # Draw cast bar (only when casting)
         if unit.state.value == "casting" and unit.cast_time > 0:

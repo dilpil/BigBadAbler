@@ -5,7 +5,7 @@ from visual_effect import VisualEffect, VisualEffectType
 from text_floater import TextFloaterManager
 
 class Board:
-    def __init__(self, width: int = 10, height: int = 10):
+    def __init__(self, width: int = 8, height: int = 8):
         self.width = width
         self.height = height
         self.units = {}

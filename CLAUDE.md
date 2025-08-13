@@ -37,7 +37,7 @@ Players can make also make custom game modes.  These can have custom patches (ch
 
 
 ### Board
-The game board is 10x10
+The game board is 8x8
 The player units start on the left hand side, the enemy units start on the right hand side.
 Each tile can be occupied by only one unit at a time (When a unit begins movement into a tile, it vacates its previous tile immediately, and occupies the new one immediately, though visually it appears to smoothly walk from one tile to the other)
 Distances on the board are always measured in chebyshev distance.

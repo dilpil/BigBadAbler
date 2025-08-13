@@ -314,8 +314,12 @@ class Game:
     
     def position_enemy_units(self):
         for i, unit in enumerate(self.enemy_team):
-            x = 8 + (i % 2)
-            y = 3 + (i // 2) * 2
+            # Position enemies on the right side of the 8x8 board (x=6-7)
+            x = 6 + (i % 2)
+            y = 1 + (i // 2)
+            # Ensure we don't exceed board boundaries
+            if y >= 8:
+                y = 7
             self.board.add_unit(unit, x, y, "enemy")
             unit.board = self.board
     
