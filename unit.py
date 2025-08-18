@@ -31,6 +31,24 @@ class PassiveSkill(Enum):
     LAY_HANDS_ON = "lay_hands_on"
     HOLY_THUNDER = "holy_thunder"
     HEALING_AURA = "healing_aura"
+    
+    # Berserker passives
+    FAST_FRENZY = "fast_frenzy"
+    HUNGRY_FRENZY = "hungry_frenzy"
+    IMMORTAL_FRENZY = "immortal_frenzy"
+    LEAP = "leap"
+    FRENZY_CRY = "frenzy_cry"
+    RIPPER = "ripper"
+    CLEAVE = "cleave"
+    
+    # Pyromancer passives
+    FIRESTORM = "firestorm"
+    BIG_FIREBALL = "big_fireball"
+    SHRAPNEL = "shrapnel"
+    FLAME_BATH = "flame_bath"
+    FLAMESHOCK = "flameshock"
+    FLAMEBOLTS = "flamebolts"
+    FLAMEPROOF_AURA = "flameproof_aura"
 
 class Unit:
     _next_id = 0
@@ -56,6 +74,7 @@ class Unit:
         self.intelligence = 0
         self.armor = 0
         self.magic_resist = 0
+        self.fire_resist = 0
         
         self.attack_damage = 10
         self.attack_range = 1
@@ -154,7 +173,9 @@ class Unit:
             
         if damage_type == "physical":
             mitigation = 100 / (100 + self.armor)
-        elif damage_type in ["magical", "fire", "ice", "lightning"]:
+        elif damage_type == "fire":
+            mitigation = 100 / (100 + self.fire_resist)
+        elif damage_type in ["magical", "ice", "lightning"]:
             mitigation = 100 / (100 + self.magic_resist)
         else:
             mitigation = 1.0

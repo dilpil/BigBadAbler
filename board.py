@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Set
 from collections import deque
 from visual_effect import VisualEffect, VisualEffectType
 from text_floater import TextFloaterManager
+from cloud_effect import CloudEffect
 
 class Board:
     def __init__(self, width: int = 8, height: int = 8):
@@ -13,6 +14,7 @@ class Board:
         self.enemy_units = []
         self.projectiles = []
         self.visual_effects = []
+        self.cloud_effects = []
         self.text_floater_manager = TextFloaterManager()
         self.event_handlers = {}
         self.game = None  # Will be set by Game class
@@ -46,12 +48,13 @@ class Board:
         self.raise_event("unit_removed", unit=unit)
     
     def clear(self):
-        """Clear all units, projectiles, and visual effects from the board."""
+        """Clear all units, projectiles, visual effects, and cloud effects from the board."""
         self.units.clear()
         self.player_units.clear()
         self.enemy_units.clear()
         self.projectiles.clear()
         self.visual_effects.clear()
+        self.cloud_effects.clear()
         self.text_floater_manager.clear()
         self.corpses.clear()
     
@@ -76,6 +79,9 @@ class Board:
     
     def get_distance(self, unit1, unit2) -> int:
         return max(abs(unit1.x - unit2.x), abs(unit1.y - unit2.y))
+        
+    def get_distance_to_point(self, unit, x: float, y: float) -> float:
+        return max(abs(unit.x - x), abs(unit.y - y))
     
     def get_nearest_enemy(self, unit):
         enemies = self.enemy_units if unit.team == "player" else self.player_units
@@ -112,6 +118,20 @@ class Board:
     
     def get_all_units(self) -> List:
         return self.player_units + self.enemy_units
+        
+    def get_enemy_units(self, team: str) -> List:
+        """Get all units that are enemies of the given team"""
+        if team == "player":
+            return self.enemy_units
+        else:
+            return self.player_units
+            
+    def get_allied_units(self, team: str) -> List:
+        """Get all units that are allies of the given team"""
+        if team == "player":
+            return self.player_units
+        else:
+            return self.enemy_units
     
     def find_path(self, start_x: int, start_y: int, end_x: int, end_y: int) -> List[Tuple[int, int]]:
         if not self.is_valid_position(start_x, start_y) or not self.is_valid_position(end_x, end_y):
@@ -169,6 +189,14 @@ class Board:
     def remove_projectile(self, projectile):
         if projectile in self.projectiles:
             self.projectiles.remove(projectile)
+            
+    def add_cloud_effect(self, cloud_effect):
+        cloud_effect.board = self
+        self.cloud_effects.append(cloud_effect)
+    
+    def remove_cloud_effect(self, cloud_effect):
+        if cloud_effect in self.cloud_effects:
+            self.cloud_effects.remove(cloud_effect)
     
     def update_projectiles(self, dt: float):
         for projectile in self.projectiles[:]:
@@ -197,6 +225,13 @@ class Board:
         if self.is_valid_position(pos_x, pos_y):
             self.text_floater_manager.add_text_floater(pos_x, pos_y, text, color)
     
+    def update_cloud_effects(self, dt: float):
+        """Update cloud effects and remove expired ones"""
+        for cloud in self.cloud_effects[:]:
+            cloud.update(dt)
+            if cloud.is_expired():
+                self.cloud_effects.remove(cloud)
+                
     def update_visual_effects(self, dt: float):
         """Update visual effects and remove expired ones."""
         for effect in self.visual_effects[:]:
@@ -205,9 +240,12 @@ class Board:
                 self.visual_effects.remove(effect)
     
     def update_combat(self, dt: float):
-        """Update all combat entities - units, projectiles, and visual effects"""
+        """Update all combat entities - units, projectiles, visual effects, and cloud effects"""
         # Update projectiles
         self.update_projectiles(dt)
+        
+        # Update cloud effects
+        self.update_cloud_effects(dt)
         
         # Update visual effects
         self.update_visual_effects(dt)

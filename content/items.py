@@ -231,24 +231,25 @@ class PhantomSaber(Item):
             # Import here to avoid circular dependency
             from content.unit_registry import create_unit
             
-            clone = create_unit(self.unit.unit_type.value)
-            clone.name = f"{self.unit.name} Clone"
-            
-            # Copy stats but reduce damage and HP
-            clone.max_hp = int(self.unit.max_hp * 0.5)
-            clone.hp = clone.max_hp
-            clone.attack_damage = int(self.unit.attack_damage * 0.5)
-            clone.armor = self.unit.armor
-            clone.magic_resist = self.unit.magic_resist
-            clone.attack_speed = self.unit.attack_speed
-            clone.attack_range = self.unit.attack_range
-            
-            # Mark as summoned
-            clone.is_summoned = True
-            clone.summoner = self.unit
-            
-            # Add to board
-            self.unit.board.add_unit(clone, x, y, self.unit.team)
+            clone = create_unit(self.unit.unit_type)
+            if clone:
+                clone.name = f"{self.unit.name} Clone"
+                
+                # Copy stats but reduce damage and HP
+                clone.max_hp = int(self.unit.max_hp * 0.5)
+                clone.hp = clone.max_hp
+                clone.attack_damage = int(self.unit.attack_damage * 0.5)
+                clone.armor = self.unit.armor
+                clone.magic_resist = self.unit.magic_resist
+                clone.attack_speed = self.unit.attack_speed
+                clone.attack_range = self.unit.attack_range
+                
+                # Mark as summoned
+                clone.is_summoned = True
+                clone.summoner = self.unit
+                
+                # Add to board
+                self.unit.board.add_unit(clone, x, y, self.unit.team)
 
 
 class SnowGlobe(Item):
