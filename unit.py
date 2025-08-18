@@ -315,6 +315,11 @@ class Unit:
             status.update(dt)
             if status.is_expired():
                 self.remove_status_effect(status)
+        
+        # Update all items
+        for item in self.items:
+            if hasattr(item, 'on_frame'):
+                item.on_frame(dt)
                 
         if self.state == UnitState.CASTING:
             self.cast_timer += dt

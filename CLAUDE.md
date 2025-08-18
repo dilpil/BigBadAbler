@@ -4,7 +4,7 @@ However, instead of being based on high randomness and variance, the player is g
 
 ### Progression
 
-Each round the player gets 100 gold to spend on characters, items, and abilities.
+Each round the player gets 200 gold to spend on characters, items, and abilities.
 The player can always purchase any character or ability each round.
 Items however, must be purchased from a rotating shop- the shop has a different set of 10 items available for purchase each round.
 Each character has a unique starting ability and a pool of 10-20 abilities that can be purchased for it.  Some buyable abilities are available to multiple units.
@@ -160,3 +160,7 @@ On attacking, the unit bumps towards its target a bit.
 
 # Tooltip Visuals
 During either phase, mousing over a unit, item, or skill will show a tooltip explaining what that thing does.
+
+# Misc
+Do not write unicode-only symbols into files, use only ascii characters
+Do not try to redirect output to null

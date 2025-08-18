@@ -21,7 +21,7 @@ class Game:
         self.round = 0
         self.player_lives = 5
         self.player_wins = 0
-        self.gold = 100
+        self.gold = 200
         
         self.phase = GamePhase.SHOPPING
         self.board = Board()
@@ -51,7 +51,7 @@ class Game:
         
     def start_new_round(self):
         self.round += 1
-        gold_gained = 50 if self.round > 1 else 100  # First round gets 100, subsequent rounds get 50
+        gold_gained = 200  # Each round gets 200 gold
         self.gold = gold_gained
         self.total_gold_earned += gold_gained  # Track total gold earned
         self.phase = GamePhase.SHOPPING
