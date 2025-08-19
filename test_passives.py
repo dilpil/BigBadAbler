@@ -36,7 +36,6 @@ class PassiveTest:
         unit = create_unit(unit_type)
         if unit:
             self.board.add_unit(unit, 0, 0, "player")
-            unit.board = self.board
         return unit
     
     def create_enemy_unit(self, unit_type: UnitType):
@@ -44,7 +43,6 @@ class PassiveTest:
         unit = create_unit(unit_type)
         if unit:
             self.board.add_unit(unit, 7, 7, "enemy")
-            unit.board = self.board
         return unit
     
     def test_berserker_passives(self):

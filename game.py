@@ -66,7 +66,6 @@ class Game:
         for unit in self.owned_units:
             unit.reset()
             self.board.add_unit(unit, unit.original_x, unit.original_y, "player")
-            unit.board = self.board
                 
         self.generate_enemy_team()
         self.position_enemy_units()  # Position enemies during shopping phase
@@ -182,7 +181,6 @@ class Game:
             self.gold -= cost
             self.units_purchased_this_game += 1  # Track for escalating costs
             self.owned_units.append(unit)
-            unit.board = self.board
             unit.original_x = x
             unit.original_y = y
             self.add_message(f"Purchased {unit.name} for {cost} gold")
@@ -346,7 +344,6 @@ class Game:
             if y >= 8:
                 y = 7
             self.board.add_unit(unit, x, y, "enemy")
-            unit.board = self.board
     
     def update_combat(self, dt: float):
         if self.phase == GamePhase.COMBAT:

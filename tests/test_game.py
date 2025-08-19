@@ -61,9 +61,7 @@ class TestBoardSanity(unittest.TestCase):
         self.board.add_unit(pyromancer, 8, 8, "enemy")
         self.board.add_unit(berserker, 9, 9, "enemy")
         
-        # Set board references for units
-        for unit in self.board.get_all_units():
-            unit.board = self.board
+        # Board references are now set automatically by add_unit
         
         # Run 1000 updates
         for i in range(1000):

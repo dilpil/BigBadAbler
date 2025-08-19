@@ -84,7 +84,6 @@ class Skill:
         """Helper to summon a minion and fire the appropriate events"""
         x, y = position
         caster.board.add_unit(minion, x, y, caster.team)
-        minion.board = caster.board
         minion.summoner = caster
         minion.is_summoned = True
         
