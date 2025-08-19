@@ -29,7 +29,9 @@ class Game:
         
         self.owned_units = []
         self.enemy_team = []
-        self.item_shop = []
+        self.augment_shop = []
+        self.passive_augments = []
+        self.unequipped_items = []
         
         self.available_units = []
         self.available_items = []
@@ -67,7 +69,7 @@ class Game:
                 
         self.generate_enemy_team()
         self.position_enemy_units()  # Position enemies during shopping phase
-        self.generate_item_shop()
+        self.generate_augment_shop()
         
         self.add_message(f"Round {self.round} - Shopping Phase")
     
@@ -162,9 +164,9 @@ class Game:
         if skill and skill.is_passive:
             unit.add_passive_skill(skill)
     
-    def generate_item_shop(self):
-        from content.items import generate_item_shop
-        self.item_shop = generate_item_shop(10)
+    def generate_augment_shop(self):
+        from content.augments import generate_augment_shop
+        self.augment_shop = generate_augment_shop(10)
     
     def purchase_unit(self, unit_type: UnitType, x: int, y: int) -> bool:
         cost = self.get_unit_cost(unit_type)
@@ -242,29 +244,46 @@ class Game:
             
         return False
     
+    def purchase_augment(self, augment_index: int) -> bool:
+        """Purchase an augment from the shop"""
+        if augment_index >= len(self.augment_shop):
+            return False
+            
+        augment = self.augment_shop[augment_index]
+        
+        if self.gold < augment.cost:
+            return False
+            
+        # Try to buy the augment
+        if augment.on_buy(self):
+            self.gold -= augment.cost
+            self.augment_shop.pop(augment_index)
+            self.add_message(f"Purchased {augment.name} for {augment.cost} gold")
+            # Play purchase sound
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
+            return True
+            
+        return False
+    
     def purchase_item(self, item_name: str, unit: Unit) -> bool:
+        """Legacy method for direct item purchases (kept for compatibility)"""
+        # Check unequipped items first
         item = None
-        for shop_item in self.item_shop:
-            if shop_item.name == item_name:
-                item = shop_item
+        for unequipped_item in self.unequipped_items:
+            if unequipped_item.name == item_name:
+                item = unequipped_item
                 break
                 
         if not item:
-            return False
-            
-        if self.gold < item.cost:
             return False
             
         if len(unit.items) >= 3:
             return False
             
         if unit.add_item(item):
-            self.gold -= item.cost
-            self.item_shop.remove(item)
-            self.add_message(f"Purchased {item.name} for {unit.name} for {item.cost} gold")
-            # Play purchase sound
-            if hasattr(self, 'ui') and self.ui:
-                self.ui.play_sound('buy')
+            self.unequipped_items.remove(item)
+            self.add_message(f"Equipped {item.name} to {unit.name}")
             return True
             
         return False
@@ -276,6 +295,11 @@ class Game:
         self.phase = GamePhase.COMBAT
         self.combat_time = 0
         self.combat_frame = 0
+        
+        # Trigger passive augments' battle start effects
+        for augment in self.passive_augments:
+            if hasattr(augment, 'on_battle_start'):
+                augment.on_battle_start()
         
         # Enemy units are already positioned during shopping phase
         
@@ -376,6 +400,11 @@ class Game:
     
     def end_combat(self):
         """Actually end combat and start new round"""
+        # Trigger passive augments' round end effects
+        for augment in self.passive_augments:
+            if hasattr(augment, 'on_round_end'):
+                augment.on_round_end()
+        
         self.combat_result = None
         self.start_new_round()
     

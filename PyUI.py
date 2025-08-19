@@ -12,7 +12,7 @@ class ShopType(Enum):
 from content.unit_registry import create_unit, get_available_units, get_unit_cost
 from unit import UnitType
 from skill_factory import create_skill, get_skill_cost
-from content.items import generate_item_shop
+from content.augments import generate_augment_shop
 from visual_effects import EffectManager
 from visual_effect import VisualEffectType
 from constants import FPS
@@ -143,7 +143,7 @@ class PyUI:
         
     def init_game(self):
         self.game.available_units = get_available_units()
-        self.game.available_items = generate_item_shop()
+        self.game.available_augments = generate_augment_shop()
         self.game.start_new_round()
         # Clear visual positions when starting a new round
         self.unit_visual_positions.clear()
@@ -269,7 +269,7 @@ class PyUI:
             
         # Check item shop click
         if self.game.phase == GamePhase.SHOPPING and y > self.height - 150:
-            self.handle_item_shop_click(pos)
+            self.handle_augment_shop_click(pos)
             return
             
         grid_x, grid_y = self.screen_to_grid(x, y)
@@ -378,12 +378,12 @@ class PyUI:
             # Clear hovered tile when mouse leaves board
             self.hovered_tile = None
             
-            # Check item tooltip
+            # Check augment tooltip
             if self.game.phase == GamePhase.SHOPPING and pos[1] > self.height - 150:
-                item_index = (pos[0] - 100) // 110
-                if 0 <= item_index < len(self.game.item_shop):
-                    item = self.game.item_shop[item_index]
-                    self.tooltip = self.create_item_tooltip(item)
+                augment_index = (pos[0] - 250) // 110  # Adjusted for new position
+                if 0 <= augment_index < len(self.game.augment_shop):
+                    augment = self.game.augment_shop[augment_index]
+                    self.tooltip = augment.get_tooltip()
                 else:
                     self.tooltip = None
             else:
@@ -466,21 +466,16 @@ class PyUI:
                 col = 0
                 row += 1
                     
-    def handle_item_shop_click(self, pos):
+    def handle_augment_shop_click(self, pos):
         if self.game.phase != GamePhase.SHOPPING:
             return
             
-        item_index = (pos[0] - 100) // 110
-        if 0 <= item_index < len(self.game.item_shop):
-            item = self.game.item_shop[item_index]
-            # Select item if we can afford it
-            if self.game.gold >= item.cost:
-                self.selected_item = item
-                self.selected_item_index = item_index
-            else:
-                # Clear selection if clicking on unaffordable item
-                self.selected_item = None
-                self.selected_item_index = None
+        augment_index = (pos[0] - 250) // 110  # Adjusted for new position
+        if 0 <= augment_index < len(self.game.augment_shop):
+            augment = self.game.augment_shop[augment_index]
+            # Purchase augment if we can afford it
+            if self.game.gold >= augment.cost:
+                self.game.purchase_augment(augment_index)
             
     def get_shop_hover_unit(self, pos):
         """Check if mouse is hovering over a unit in the unit shop"""
@@ -1072,17 +1067,34 @@ class PyUI:
             pygame.draw.line(self.screen, self.colors['panel_border'], 
                            (0, shop_y), (self.width, shop_y), 3)
             
-            text = self.fonts['medium'].render("ITEM SHOP", True, self.colors['text'])
+            text = self.fonts['medium'].render("AUGMENT SHOP", True, self.colors['text'])
             self.screen.blit(text, (50, shop_y + 10))
             
-            # Draw items
-            for i, item in enumerate(self.game.item_shop):
-                x = 100 + i * 110
+            # Draw unequipped items on the left side
+            if hasattr(self.game, 'unequipped_items') and self.game.unequipped_items:
+                items_text = self.fonts['small'].render("ITEMS:", True, self.colors['text'])
+                self.screen.blit(items_text, (50, shop_y + 40))
+                
+                for idx, item in enumerate(self.game.unequipped_items[:3]):  # Show max 3 items
+                    item_x = 50
+                    item_y = shop_y + 60 + idx * 30
+                    
+                    # Draw small item indicator
+                    pygame.draw.rect(self.screen, (100, 150, 200), (item_x, item_y, 25, 25))
+                    pygame.draw.rect(self.screen, self.colors['panel_border'], (item_x, item_y, 25, 25), 1)
+                    
+                    # Item name
+                    name_text = self.fonts['tiny'].render(item.name[:15], True, self.colors['text'])
+                    self.screen.blit(name_text, (item_x + 30, item_y + 5))
+            
+            # Draw augments (shifted right to make room for items)
+            for i, augment in enumerate(self.game.augment_shop):
+                x = 250 + i * 110  # Shifted from 100 to 250
                 y = shop_y + 50
                 
                 # Item background with selection highlight
-                can_afford = self.game.gold >= item.cost
-                is_selected = self.selected_item_index == i
+                can_afford = self.game.gold >= augment.cost
+                is_selected = False  # No selection for augments - click to buy
                 
                 if is_selected:
                     # Draw selection glow
@@ -1099,8 +1111,22 @@ class PyUI:
                 border_width = 3 if is_selected else 2
                 pygame.draw.rect(self.screen, border_color, (x, y, 100, 80), border_width)
                 
-                # Draw item as colored square with letter
-                item_color = self.get_item_color(item.name)
+                # Draw augment type indicator
+                from augment import PassiveAugment, ItemAugment, UnitAugment
+                
+                if isinstance(augment, PassiveAugment):
+                    aug_color = (150, 100, 200)  # Purple for passives
+                    aug_letter = 'P'
+                elif isinstance(augment, ItemAugment):
+                    aug_color = (100, 150, 200)  # Blue for items
+                    aug_letter = 'I'
+                elif isinstance(augment, UnitAugment):
+                    aug_color = (200, 150, 100)  # Gold for units
+                    aug_letter = 'U'
+                else:
+                    aug_color = (150, 150, 150)  # Gray for unknown
+                    aug_letter = '?'
+                
                 item_size = 40
                 item_x = x + (100 - item_size) // 2
                 item_y = y + 10
@@ -1108,26 +1134,26 @@ class PyUI:
                 # Apply transparency if can't afford
                 if not can_afford:
                     s = pygame.Surface((item_size, item_size))
-                    s.fill(item_color)
+                    s.fill(aug_color)
                     s.set_alpha(100)
                     self.screen.blit(s, (item_x, item_y))
                 else:
-                    pygame.draw.rect(self.screen, item_color, (item_x, item_y, item_size, item_size))
+                    pygame.draw.rect(self.screen, aug_color, (item_x, item_y, item_size, item_size))
                     
-                # Draw item letter
-                letter = self.get_item_letter(item.name)
+                # Draw augment type letter
                 text_color = self.colors['text'] if can_afford else (100, 100, 100)
-                text = self.fonts['medium'].render(letter, True, text_color)
+                text = self.fonts['medium'].render(aug_letter, True, text_color)
                 text_rect = text.get_rect(center=(item_x + item_size // 2, item_y + item_size // 2))
                 self.screen.blit(text, text_rect)
                 
-                # Item name below the square
-                text = self.fonts['tiny'].render(item.name, True, self.colors['text'])
+                # Augment name below the square (truncate if too long)
+                name = augment.name[:12] + '...' if len(augment.name) > 12 else augment.name
+                text = self.fonts['tiny'].render(name, True, self.colors['text'])
                 text_rect = text.get_rect(center=(x + 50, y + 58))
                 self.screen.blit(text, text_rect)
                 
                 # Cost
-                text = self.fonts['small'].render(f"{item.cost}g", True, 
+                text = self.fonts['small'].render(f"{augment.cost}g", True, 
                                                  self.colors['text'] if can_afford else (100, 100, 100))
                 text_rect = text.get_rect(center=(x + 50, y + 70))
                 self.screen.blit(text, text_rect)
@@ -1414,7 +1440,7 @@ class PyUI:
         if not self.tooltip:
             return
             
-        raw_lines = self.tooltip.split('\\n')
+        raw_lines = self.tooltip.split('\n')
         max_tooltip_width = 350  # Maximum width for tooltips
         
         # Process lines and handle text wrapping
