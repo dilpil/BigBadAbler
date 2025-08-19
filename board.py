@@ -146,7 +146,9 @@ class Board:
         queue = deque([(start, [start])])
         visited = {start}
         
-        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        # Prioritize straight movements over diagonal ones
+        directions = [(-1, 0), (0, -1), (0, 1), (1, 0),  # Straight movements first
+                     (-1, -1), (-1, 1), (1, -1), (1, 1)]  # Diagonal movements second
         
         while queue:
             (x, y), path = queue.popleft()

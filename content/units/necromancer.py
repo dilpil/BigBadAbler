@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from unit import Unit, UnitType, PassiveSkill
 from skill import Skill
-from projectile import Projectile, AoEProjectile
+from projectile import Projectile
 from status_effect import *
 from visual_effect import VisualEffectType
 

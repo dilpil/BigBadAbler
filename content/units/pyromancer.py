@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from unit import Unit, UnitType, PassiveSkill
 from skill import Skill
-from projectile import AoEProjectile, Projectile
+from projectile import Projectile
 from cloud_effect import FirestormCloud
 from status_effect import StatusEffect, StatModifierEffect
 import math
@@ -118,10 +118,11 @@ class Fireball(Skill):
             caster.board.add_projectile(projectile)
 
 
-class EnhancedFireballProjectile(AoEProjectile):
+class EnhancedFireballProjectile(Projectile):
     """Enhanced fireball projectile that supports pyromancer passive abilities"""
     def __init__(self, source, target_x: float, target_y: float, speed: float = 10.0):
-        super().__init__(source, target_x, target_y, speed)
+        super().__init__(source, None, speed)
+        self.set_target_location(target_x, target_y)
         self.damage_type = "fire"
         self.caster = source
         
@@ -131,6 +132,7 @@ class EnhancedFireballProjectile(AoEProjectile):
             return
             
         self.exploded = True
+        self.reached_target = True
         
         if not self.caster or not self.caster.board:
             return
