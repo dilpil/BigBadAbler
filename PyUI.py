@@ -254,10 +254,23 @@ class PyUI:
                     self.selected_item_index = None
                 elif self.shop_open != ShopType.NONE:
                     self.shop_open = ShopType.NONE
-                    self.play_sound('shop_close')
-                
+                                    
     def handle_click(self, pos):
         x, y = pos
+        
+        # Check owned augments panel click (for selecting items)
+        if self.game.phase == GamePhase.SHOPPING:
+            if hasattr(self.game, 'owned_augments') and self.game.owned_augments:
+                from augment import ItemAugment
+                for augment in self.game.owned_augments:
+                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
+                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
+                            # Check if item is unequipped
+                            if augment.item in self.game.unequipped_items:
+                                # Select this item for equipping
+                                self.selected_item = augment.item
+                                self.selected_item_index = None  # Not from shop
+                                return
         
         if self.shop_open != ShopType.NONE:
             if not self.is_click_in_shop(pos):
@@ -276,13 +289,17 @@ class PyUI:
         if 0 <= grid_x < 8 and 0 <= grid_y < 8:
             unit = self.game.board.get_unit_at(grid_x, grid_y)
             if unit and unit.team == "player" and self.game.phase == GamePhase.SHOPPING:
-                # If we have a selected item, try to buy it for this unit
+                # If we have a selected item, try to equip it to this unit
                 if self.selected_item:
-                    if len(unit.items) < 3 and self.game.gold >= self.selected_item.cost:
-                        if self.game.purchase_item(self.selected_item.name, unit):
-                            # Clear selection after successful purchase
-                            self.selected_item = None
-                            self.selected_item_index = None
+                    if len(unit.items) < 3:
+                        # Check if it's an unequipped item (not from shop)
+                        if self.selected_item in self.game.unequipped_items:
+                            if unit.add_item(self.selected_item):
+                                self.game.unequipped_items.remove(self.selected_item)
+                                self.game.add_message(f"Equipped {self.selected_item.name} to {unit.name}")
+                                # Clear selection after successful equip
+                                self.selected_item = None
+                                self.selected_item_index = None
                 else:
                     # Open passive skill shop on left click
                     self.selected_unit = unit
@@ -298,6 +315,16 @@ class PyUI:
                     self.shop_position = (grid_x, grid_y)
                 
     def handle_right_click(self, pos):
+        # Check if clicking on item in upgrade shop to unequip
+        if self.shop_open == ShopType.UPGRADE and hasattr(self, 'item_unequip_rects'):
+            for item_rect, item in self.item_unequip_rects:
+                if item_rect.collidepoint(pos):
+                    # Unequip the item
+                    if self.selected_unit and item in self.selected_unit.items:
+                        self.selected_unit.items.remove(item)
+                        self.game.unequipped_items.append(item)
+                        return
+        
         # Cancel item selection on right click
         if self.selected_item:
             self.selected_item = None
@@ -378,12 +405,27 @@ class PyUI:
             # Clear hovered tile when mouse leaves board
             self.hovered_tile = None
             
-            # Check augment tooltip
+            # Check owned augments tooltip (left side panel)
+            if hasattr(self.game, 'owned_augments') and self.game.owned_augments:
+                for augment in self.game.owned_augments:
+                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
+                        self.tooltip = augment.get_tooltip()
+                        return
+            
+            # Check augment shop tooltip
             if self.game.phase == GamePhase.SHOPPING and pos[1] > self.height - 150:
-                augment_index = (pos[0] - 250) // 110  # Adjusted for new position
-                if 0 <= augment_index < len(self.game.augment_shop):
-                    augment = self.game.augment_shop[augment_index]
-                    self.tooltip = augment.get_tooltip()
+                # Calculate centered position
+                augment_width = 100
+                augment_spacing = 10
+                total_width = len(self.game.augment_shop) * augment_width + (len(self.game.augment_shop) - 1) * augment_spacing
+                start_x = (self.width - total_width) // 2
+                
+                # Check which augment is hovered
+                for i, augment in enumerate(self.game.augment_shop):
+                    aug_x = start_x + i * (augment_width + augment_spacing)
+                    if aug_x <= pos[0] <= aug_x + augment_width:
+                        self.tooltip = augment.get_tooltip()
+                        return
                 else:
                     self.tooltip = None
             else:
@@ -470,12 +512,20 @@ class PyUI:
         if self.game.phase != GamePhase.SHOPPING:
             return
             
-        augment_index = (pos[0] - 250) // 110  # Adjusted for new position
-        if 0 <= augment_index < len(self.game.augment_shop):
-            augment = self.game.augment_shop[augment_index]
-            # Purchase augment if we can afford it
-            if self.game.gold >= augment.cost:
-                self.game.purchase_augment(augment_index)
+        # Calculate centered position
+        augment_width = 100
+        augment_spacing = 10
+        total_width = len(self.game.augment_shop) * augment_width + (len(self.game.augment_shop) - 1) * augment_spacing
+        start_x = (self.width - total_width) // 2
+        
+        # Check which augment was clicked
+        for i, augment in enumerate(self.game.augment_shop):
+            aug_x = start_x + i * (augment_width + augment_spacing)
+            if aug_x <= pos[0] <= aug_x + augment_width:
+                # Purchase augment if we can afford it
+                if self.game.gold >= augment.cost:
+                    self.game.purchase_augment(i)
+                break
             
     def get_shop_hover_unit(self, pos):
         """Check if mouse is hovering over a unit in the unit shop"""
@@ -677,6 +727,7 @@ class PyUI:
         self.draw_projectiles()
         self.draw_text_floaters()
         self.draw_ui()
+        self.draw_owned_augments()
         self.effect_manager.draw(self.screen, self.fonts['small'])
         
         if self.shop_open != ShopType.NONE:
@@ -1070,26 +1121,14 @@ class PyUI:
             text = self.fonts['medium'].render("AUGMENT SHOP", True, self.colors['text'])
             self.screen.blit(text, (50, shop_y + 10))
             
-            # Draw unequipped items on the left side
-            if hasattr(self.game, 'unequipped_items') and self.game.unequipped_items:
-                items_text = self.fonts['small'].render("ITEMS:", True, self.colors['text'])
-                self.screen.blit(items_text, (50, shop_y + 40))
-                
-                for idx, item in enumerate(self.game.unequipped_items[:3]):  # Show max 3 items
-                    item_x = 50
-                    item_y = shop_y + 60 + idx * 30
-                    
-                    # Draw small item indicator
-                    pygame.draw.rect(self.screen, (100, 150, 200), (item_x, item_y, 25, 25))
-                    pygame.draw.rect(self.screen, self.colors['panel_border'], (item_x, item_y, 25, 25), 1)
-                    
-                    # Item name
-                    name_text = self.fonts['tiny'].render(item.name[:15], True, self.colors['text'])
-                    self.screen.blit(name_text, (item_x + 30, item_y + 5))
+            # Draw augments (centered)
+            augment_width = 100  # Width of each augment box
+            augment_spacing = 10  # Space between augments
+            total_width = len(self.game.augment_shop) * augment_width + (len(self.game.augment_shop) - 1) * augment_spacing
+            start_x = (self.width - total_width) // 2
             
-            # Draw augments (shifted right to make room for items)
             for i, augment in enumerate(self.game.augment_shop):
-                x = 250 + i * 110  # Shifted from 100 to 250
+                x = start_x + i * (augment_width + augment_spacing)
                 y = shop_y + 50
                 
                 # Item background with selection highlight
@@ -1176,6 +1215,100 @@ class PyUI:
                 text = self.fonts['small'].render(message, True, self.colors['text'])
                 self.screen.blit(text, (log_x + 20, y))
                 y += 20
+                
+    def draw_owned_augments(self):
+        """Draw owned augments stacked vertically on the left side"""
+        if not hasattr(self.game, 'owned_augments') or not self.game.owned_augments:
+            return
+            
+        # Import augment types
+        from augment import PassiveAugment, ItemAugment, UnitAugment
+        
+        # Panel dimensions
+        panel_width = 200
+        panel_height = min(600, len(self.game.owned_augments) * 60 + 40)
+        panel_x = 20
+        panel_y = 100  # Start below top UI panel
+        
+        # Draw background panel
+        pygame.draw.rect(self.screen, self.colors['panel_bg'], 
+                        (panel_x, panel_y, panel_width, panel_height))
+        pygame.draw.rect(self.screen, self.colors['panel_border'], 
+                        (panel_x, panel_y, panel_width, panel_height), 2)
+        
+        # Title
+        title_text = self.fonts['medium'].render("AUGMENTS", True, self.colors['text'])
+        self.screen.blit(title_text, (panel_x + 10, panel_y + 10))
+        
+        # Draw augments stacked vertically
+        for i, augment in enumerate(self.game.owned_augments):
+            augment_y = panel_y + 40 + i * 55
+            augment_rect = pygame.Rect(panel_x + 10, augment_y, panel_width - 20, 50)
+            
+            # Store rect for tooltip and click detection
+            augment.ui_rect = augment_rect
+            
+            # Check if this is an equipped item augment
+            is_equipped = False
+            is_selected = False
+            if isinstance(augment, ItemAugment):
+                if hasattr(augment, 'is_equipped'):
+                    is_equipped = augment.is_equipped()
+                if hasattr(augment, 'item') and self.selected_item == augment.item:
+                    is_selected = True
+            
+            # Augment background - darker if equipped, highlighted if selected
+            if is_selected:
+                bg_color = (100, 100, 50)  # Yellow tint for selected
+            elif is_equipped:
+                bg_color = (40, 40, 60)  # Dark for equipped
+            else:
+                bg_color = self.colors['button']  # Normal
+            pygame.draw.rect(self.screen, bg_color, augment_rect)
+            
+            # Border - different colors for different states
+            if is_selected:
+                border_color = (255, 200, 0)  # Gold for selected
+                border_width = 3
+            elif is_equipped:
+                border_color = (100, 200, 100)  # Green for equipped
+                border_width = 2
+            else:
+                border_color = self.colors['panel_border']  # Normal
+                border_width = 1
+            pygame.draw.rect(self.screen, border_color, augment_rect, border_width)
+            
+            # Augment type indicator
+            if isinstance(augment, PassiveAugment):
+                aug_color = (150, 100, 200)  # Purple for passives
+                aug_letter = 'P'
+            elif isinstance(augment, ItemAugment):
+                aug_color = (100, 150, 200)  # Blue for items
+                aug_letter = 'I'
+            elif isinstance(augment, UnitAugment):
+                aug_color = (200, 150, 100)  # Gold for units
+                aug_letter = 'U'
+            else:
+                aug_color = (150, 150, 150)  # Gray for unknown
+                aug_letter = '?'
+            
+            # Draw type icon
+            icon_size = 30
+            icon_x = augment_rect.x + 5
+            icon_y = augment_rect.y + 10
+            pygame.draw.rect(self.screen, aug_color, (icon_x, icon_y, icon_size, icon_size))
+            
+            # Type letter
+            letter_text = self.fonts['medium'].render(aug_letter, True, self.colors['text'])
+            letter_rect = letter_text.get_rect(center=(icon_x + icon_size // 2, icon_y + icon_size // 2))
+            self.screen.blit(letter_text, letter_rect)
+            
+            # Augment name (truncated if too long) - centered vertically in the box
+            name = augment.name[:20] + '...' if len(augment.name) > 20 else augment.name
+            name_text = self.fonts['small'].render(name, True, self.colors['text'])
+            # Center the name vertically in the augment rect
+            name_y = augment_rect.y + (augment_rect.height - name_text.get_height()) // 2
+            self.screen.blit(name_text, (icon_x + icon_size + 10, name_y))
                 
     def draw_shop(self):
         # Dark overlay
@@ -1309,6 +1442,33 @@ class PyUI:
         text = self.fonts['small'].render(f"Current Upgrades: {len(self.selected_unit.passive_skills)}", 
                                         True, self.colors['text'])
         self.screen.blit(text, (shop_x + 20, shop_y + 60))
+        
+        # Show equipped items with unequip option
+        if self.selected_unit.items:
+            items_text = self.fonts['small'].render(f"Items ({len(self.selected_unit.items)}/3) - Right-click to unequip:", 
+                                                   True, self.colors['text'])
+            self.screen.blit(items_text, (shop_x + 250, shop_y + 60))
+            
+            # Store item rects for click detection
+            if not hasattr(self, 'item_unequip_rects'):
+                self.item_unequip_rects = []
+            self.item_unequip_rects.clear()
+            
+            for i, item in enumerate(self.selected_unit.items):
+                item_x = shop_x + 250 + i * 80
+                item_y = shop_y + 85
+                item_rect = pygame.Rect(item_x, item_y, 70, 20)
+                self.item_unequip_rects.append((item_rect, item))
+                
+                # Draw item button
+                pygame.draw.rect(self.screen, (60, 80, 100), item_rect)
+                pygame.draw.rect(self.screen, self.colors['panel_border'], item_rect, 1)
+                
+                # Item name (truncated)
+                name = item.name[:8] + '..' if len(item.name) > 8 else item.name
+                name_text = self.fonts['tiny'].render(name, True, self.colors['text'])
+                name_rect = name_text.get_rect(center=(item_rect.centerx, item_rect.centery))
+                self.screen.blit(name_text, name_rect)
         
         gold_text = self.fonts['small'].render(f"Gold: {self.game.gold}g", 
                                              True, (255, 215, 0))  # Gold color

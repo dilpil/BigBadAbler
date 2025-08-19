@@ -72,6 +72,8 @@ class HolyAura(Skill):
         
     def should_cast(self, caster) -> bool:
         # Cast if there are injured allies in range
+        if not caster.board:
+            return False
         allies = caster.board.get_units_in_range(caster.x, caster.y, self.range, caster.team)
         for ally in allies:
             if ally.is_alive() and ally.hp < ally.max_hp:
@@ -80,6 +82,8 @@ class HolyAura(Skill):
         
     def execute(self, caster):
         # Heal allies
+        if not caster.board:
+            return
         allies = caster.board.get_units_in_range(caster.x, caster.y, self.range, caster.team)
         for ally in allies:
             if ally.is_alive():

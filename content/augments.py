@@ -322,7 +322,7 @@ def get_all_augment_types():
     ]
 
 
-def generate_augment_shop(count: int = 10) -> list:
+def generate_augment_shop(count: int = 5) -> list:
     """Generate a random shop of augments"""
     all_augment_types = get_all_augment_types()
     

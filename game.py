@@ -30,7 +30,8 @@ class Game:
         self.owned_units = []
         self.enemy_team = []
         self.augment_shop = []
-        self.passive_augments = []
+        self.owned_augments = []  # ALL purchased augments
+        self.passive_augments = []  # Just passive augments for combat effects
         self.unequipped_items = []
         
         self.available_units = []
@@ -166,7 +167,7 @@ class Game:
     
     def generate_augment_shop(self):
         from content.augments import generate_augment_shop
-        self.augment_shop = generate_augment_shop(10)
+        self.augment_shop = generate_augment_shop(5)
     
     def purchase_unit(self, unit_type: UnitType, x: int, y: int) -> bool:
         cost = self.get_unit_cost(unit_type)

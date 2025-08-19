@@ -36,6 +36,10 @@ class UnitAugment(Augment):
                 if not game.board.get_unit_at(x, y):
                     game.board.add_unit(unit, x, y, "player")
                     game.player_units.append(unit)
+                    # Add to owned augments list for display
+                    if not hasattr(game, 'owned_augments'):
+                        game.owned_augments = []
+                    game.owned_augments.append(self)
                     return True
         return False  # No space available
 
@@ -51,11 +55,23 @@ class ItemAugment(Augment):
         """Add the item to the player's inventory"""
         self.game = game
         item = self.item_factory()
+        self.item = item  # Store reference to the created item
         # Add to player's unequipped items
         if not hasattr(game, 'unequipped_items'):
             game.unequipped_items = []
         game.unequipped_items.append(item)
+        # Add to owned augments list for display
+        if not hasattr(game, 'owned_augments'):
+            game.owned_augments = []
+        game.owned_augments.append(self)
         return True
+    
+    def is_equipped(self):
+        """Check if this augment's item is currently equipped"""
+        if not hasattr(self, 'item') or not self.game:
+            return False
+        # Check if item is in unequipped items (means it's not equipped)
+        return self.item not in self.game.unequipped_items
 
 
 class PassiveAugment(Augment):
@@ -69,10 +85,14 @@ class PassiveAugment(Augment):
         """Activate the passive effect"""
         self.game = game
         self.active = True
-        # Add to game's passive augments list
+        # Add to game's passive augments list (for combat effects)
         if not hasattr(game, 'passive_augments'):
             game.passive_augments = []
         game.passive_augments.append(self)
+        # Add to owned augments list for display
+        if not hasattr(game, 'owned_augments'):
+            game.owned_augments = []
+        game.owned_augments.append(self)
         return True
         
     def on_event(self, event_type, **kwargs):

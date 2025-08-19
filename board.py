@@ -25,6 +25,7 @@ class Board:
             unit.x = x
             unit.y = y
             unit.team = team
+            unit.board = self  # Set board reference
             self.units[(x, y)] = unit
             
             if team == "player":
