@@ -1754,7 +1754,7 @@ class PyUI:
                 duration_text = f" ({status.remaining_duration:.1f}s)" if hasattr(status, 'remaining_duration') else ""
                 lines.append(f"• {status.name}{duration_text}")
                 
-        return '\\n'.join(lines)
+        return '\n'.join(lines)
     
     def create_shop_unit_tooltip(self, unit):
         """Create tooltip for units in the shop showing their base stats"""
@@ -1797,7 +1797,7 @@ class PyUI:
             if skill_stats:
                 lines.append(f"  [{' | '.join(skill_stats)}]")
         
-        return '\\n'.join(lines)
+        return '\n'.join(lines)
     
     def create_item_tooltip(self, item):
         lines = [
@@ -1819,7 +1819,7 @@ class PyUI:
                 else:
                     lines.append(f"• {value} {stat_name}")
                     
-        return '\\n'.join(lines)
+        return '\n'.join(lines)
     
     def create_ability_tooltip(self, skill_name):
         """Create tooltip for abilities in the upgrade shop"""
@@ -1855,7 +1855,7 @@ class PyUI:
         if hasattr(skill, 'cooldown_time') and skill.cooldown_time:
             lines.append(f"Cooldown: {skill.cooldown_time}s")
             
-        return '\\n'.join(lines)
+        return '\n'.join(lines)
     
     def draw_combat_result_banner(self):
         """Draw victory or defeat banner during post-combat phase"""

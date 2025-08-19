@@ -142,7 +142,7 @@ class ScorpionTail(Item):
                 # Apply poison status effect
                 poison = DamageOverTimeEffect("Poison", 5.0, 5.0, "magical")
                 poison.source = self.unit
-                target.apply_status_effect(poison)
+                target.add_status_effect(poison)
 
 
 class Phylactery(Item):
@@ -172,7 +172,7 @@ class Sunderer(Item):
                 # Apply sunder debuff
                 sunder = StatModifierEffect("Sunder", 3.0, {"armor": -5})
                 sunder.source = self.unit
-                target.apply_status_effect(sunder)
+                target.add_status_effect(sunder)
 
 
 class Beastheart(Item):
@@ -265,7 +265,7 @@ class SnowGlobe(Item):
                     # Apply chill debuff
                     chill = StatModifierEffect("Chill", 2.0, {"attack_speed": -3, "move_speed": -0.03})
                     chill.source = self.unit
-                    target.apply_status_effect(chill)
+                    target.add_status_effect(chill)
 
 
 class Echostone(Item):
