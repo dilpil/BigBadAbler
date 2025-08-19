@@ -164,4 +164,4 @@ During either phase, mousing over a unit, item, or skill will show a tooltip exp
 # Misc
 Do not write unicode-only symbols into files, use only ascii characters
 Do not try to redirect output to null
-Try not to make multilevel inheritance heirarchies.  Make generalized, useful, configurable base classes that specific content can inherit from directly instead.
+Try not to make multilevel inheritance heirarchies except when absolutely warranted.  Make generalized, useful, configurable base classes that specific content can inherit from directly instead.
