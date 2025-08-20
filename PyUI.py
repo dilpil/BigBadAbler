@@ -260,13 +260,13 @@ class PyUI:
         
         # Check owned augments panel click (for selecting items)
         if self.game.phase == GamePhase.SHOPPING:
-            if hasattr(self.game, 'owned_augments') and self.game.owned_augments:
+            if self.game.player_team.augments:
                 from augment import ItemAugment
-                for augment in self.game.owned_augments:
+                for augment in self.game.player_team.augments:
                     if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
                         if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
                             # Check if item is unequipped
-                            if augment.item in self.game.unequipped_items:
+                            if augment.item in self.game.player_team.unequipped_items:
                                 # Select this item for equipping
                                 self.selected_item = augment.item
                                 self.selected_item_index = None  # Not from shop
@@ -293,9 +293,9 @@ class PyUI:
                 if self.selected_item:
                     if len(unit.items) < 3:
                         # Check if it's an unequipped item (not from shop)
-                        if self.selected_item in self.game.unequipped_items:
+                        if self.selected_item in self.game.player_team.unequipped_items:
                             if unit.add_item(self.selected_item):
-                                self.game.unequipped_items.remove(self.selected_item)
+                                self.game.player_team.unequipped_items.remove(self.selected_item)
                                 self.game.add_message(f"Equipped {self.selected_item.name} to {unit.name}")
                                 # Clear selection after successful equip
                                 self.selected_item = None
@@ -322,7 +322,7 @@ class PyUI:
                     # Unequip the item
                     if self.selected_unit and item in self.selected_unit.items:
                         self.selected_unit.items.remove(item)
-                        self.game.unequipped_items.append(item)
+                        self.game.player_team.unequipped_items.append(item)
                         return
         
         # Cancel item selection on right click
@@ -406,8 +406,8 @@ class PyUI:
             self.hovered_tile = None
             
             # Check owned augments tooltip (left side panel)
-            if hasattr(self.game, 'owned_augments') and self.game.owned_augments:
-                for augment in self.game.owned_augments:
+            if self.game.player_team.augments:
+                for augment in self.game.player_team.augments:
                     if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
                         self.tooltip = augment.get_tooltip()
                         return
@@ -728,6 +728,7 @@ class PyUI:
         self.draw_text_floaters()
         self.draw_ui()
         self.draw_owned_augments()
+        self.draw_enemy_augments()
         self.effect_manager.draw(self.screen, self.fonts['small'])
         
         if self.shop_open != ShopType.NONE:
@@ -1218,7 +1219,7 @@ class PyUI:
                 
     def draw_owned_augments(self):
         """Draw owned augments stacked vertically on the left side"""
-        if not hasattr(self.game, 'owned_augments') or not self.game.owned_augments:
+        if not self.game.player_team.augments:
             return
             
         # Import augment types
@@ -1226,7 +1227,7 @@ class PyUI:
         
         # Panel dimensions
         panel_width = 200
-        panel_height = min(600, len(self.game.owned_augments) * 60 + 40)
+        panel_height = min(600, len(self.game.player_team.augments) * 60 + 40)
         panel_x = 20
         panel_y = 100  # Start below top UI panel
         
@@ -1241,7 +1242,7 @@ class PyUI:
         self.screen.blit(title_text, (panel_x + 10, panel_y + 10))
         
         # Draw augments stacked vertically
-        for i, augment in enumerate(self.game.owned_augments):
+        for i, augment in enumerate(self.game.player_team.augments):
             augment_y = panel_y + 40 + i * 55
             augment_rect = pygame.Rect(panel_x + 10, augment_y, panel_width - 20, 50)
             
@@ -1277,6 +1278,72 @@ class PyUI:
                 border_color = self.colors['panel_border']  # Normal
                 border_width = 1
             pygame.draw.rect(self.screen, border_color, augment_rect, border_width)
+            
+            # Augment type indicator
+            if isinstance(augment, PassiveAugment):
+                aug_color = (150, 100, 200)  # Purple for passives
+                aug_letter = 'P'
+            elif isinstance(augment, ItemAugment):
+                aug_color = (100, 150, 200)  # Blue for items
+                aug_letter = 'I'
+            elif isinstance(augment, UnitAugment):
+                aug_color = (200, 150, 100)  # Gold for units
+                aug_letter = 'U'
+            else:
+                aug_color = (150, 150, 150)  # Gray for unknown
+                aug_letter = '?'
+            
+            # Draw type icon
+            icon_size = 30
+            icon_x = augment_rect.x + 5
+            icon_y = augment_rect.y + 10
+            pygame.draw.rect(self.screen, aug_color, (icon_x, icon_y, icon_size, icon_size))
+            
+            # Type letter
+            letter_text = self.fonts['medium'].render(aug_letter, True, self.colors['text'])
+            letter_rect = letter_text.get_rect(center=(icon_x + icon_size // 2, icon_y + icon_size // 2))
+            self.screen.blit(letter_text, letter_rect)
+            
+            # Augment name (truncated if too long) - centered vertically in the box
+            name = augment.name[:20] + '...' if len(augment.name) > 20 else augment.name
+            name_text = self.fonts['small'].render(name, True, self.colors['text'])
+            # Center the name vertically in the augment rect
+            name_y = augment_rect.y + (augment_rect.height - name_text.get_height()) // 2
+            self.screen.blit(name_text, (icon_x + icon_size + 10, name_y))
+                
+    def draw_enemy_augments(self):
+        """Draw enemy augments stacked vertically on the right side"""
+        if not self.game.enemy_team.augments:
+            return
+            
+        # Import augment types
+        from augment import PassiveAugment, ItemAugment, UnitAugment
+        
+        # Panel dimensions (mirrored from player side)
+        panel_width = 200
+        panel_height = min(600, len(self.game.enemy_team.augments) * 60 + 40)
+        panel_x = self.width - panel_width - 20  # Right side
+        panel_y = 100  # Start below top UI panel
+        
+        # Draw background panel
+        pygame.draw.rect(self.screen, self.colors['panel_bg'], 
+                        (panel_x, panel_y, panel_width, panel_height))
+        pygame.draw.rect(self.screen, self.colors['enemy_border'],  # Use enemy border color
+                        (panel_x, panel_y, panel_width, panel_height), 2)
+        
+        # Title
+        title_text = self.fonts['medium'].render("ENEMY AUGMENTS", True, self.colors['enemy_border'])
+        self.screen.blit(title_text, (panel_x + 10, panel_y + 10))
+        
+        # Draw augments stacked vertically
+        for i, augment in enumerate(self.game.enemy_team.augments):
+            augment_y = panel_y + 40 + i * 55
+            augment_rect = pygame.Rect(panel_x + 10, augment_y, panel_width - 20, 50)
+            
+            # Augment background
+            bg_color = self.colors['button']
+            pygame.draw.rect(self.screen, bg_color, augment_rect)
+            pygame.draw.rect(self.screen, self.colors['panel_border'], augment_rect, 1)
             
             # Augment type indicator
             if isinstance(augment, PassiveAugment):
@@ -1751,9 +1818,13 @@ class PyUI:
             lines.append("")
             lines.append("STATUS EFFECTS:")
             for status in unit.status_effects:
-                if hasattr(status, 'remaining_duration') and status.remaining_duration is not None:
-                    duration_text = f" ({status.remaining_duration:.1f}s)"
-                else:
+                # Handle both None and missing remaining_duration
+                try:
+                    if hasattr(status, 'remaining_duration') and status.remaining_duration is not None:
+                        duration_text = f" ({status.remaining_duration:.1f}s)"
+                    else:
+                        duration_text = ""  # Permanent effect
+                except (TypeError, AttributeError):
                     duration_text = ""  # Permanent effect
                 lines.append(f"• {status.name}{duration_text}")
                 

@@ -21,8 +21,8 @@ class AttackBoostAugment(PassiveAugment):
         
     def on_battle_start(self):
         """Apply the attack boost to all units at battle start"""
-        if self.game and self.game.board:
-            for unit in self.game.board.player_units:
+        if self.team and self.team.board:
+            for unit in self.team.units:
                 if unit.is_alive():
                     unit.attack_damage = int(unit.attack_damage * 1.25)
 
@@ -39,8 +39,8 @@ class HealthBoostAugment(PassiveAugment):
         
     def on_battle_start(self):
         """Apply the HP boost to all units at battle start"""
-        if self.game and self.game.board:
-            for unit in self.game.board.player_units:
+        if self.team and self.team.board:
+            for unit in self.team.units:
                 if unit.is_alive():
                     hp_increase = int(unit.max_hp * 0.25)
                     unit.max_hp += hp_increase
@@ -59,8 +59,8 @@ class ArmorBoostAugment(PassiveAugment):
         
     def on_battle_start(self):
         """Apply the armor boost to all units at battle start"""
-        if self.game and self.game.board:
-            for unit in self.game.board.player_units:
+        if self.team and self.team.board:
+            for unit in self.team.units:
                 if unit.is_alive():
                     unit.armor += 25
 
@@ -77,8 +77,8 @@ class AttackSpeedBoostAugment(PassiveAugment):
         
     def on_battle_start(self):
         """Apply the attack speed boost to all units at battle start"""
-        if self.game and self.game.board:
-            for unit in self.game.board.player_units:
+        if self.team and self.team.board:
+            for unit in self.team.units:
                 if unit.is_alive():
                     unit.attack_speed += 25
 
@@ -94,9 +94,10 @@ class GoldGenerationAugment(PassiveAugment):
         )
         
     def on_round_end(self):
-        """Add extra gold at the end of the round"""
-        if self.game:
-            self.game.gold += 10
+        """Add extra gold at the end of the round (only works for player teams)"""
+        # This augment only makes sense for player teams
+        if self.team and self.team.name == "player" and hasattr(self.team, 'board') and self.team.board and hasattr(self.team.board, 'game'):
+            self.team.board.game.gold += 10
 
 
 # Item Augments - wrap existing items

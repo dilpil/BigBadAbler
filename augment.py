@@ -7,10 +7,10 @@ class Augment(ABC):
         self.name = name
         self.description = description
         self.cost = cost
-        self.game = None  # Will be set when purchased
+        self.team = None  # Will be set when purchased
         
     @abstractmethod
-    def on_buy(self, game):
+    def on_buy(self, team):
         """Called when this augment is purchased"""
         pass
         
@@ -26,21 +26,16 @@ class UnitAugment(Augment):
         super().__init__(name, description, cost)
         self.unit_factory = unit_factory
         
-    def on_buy(self, game):
-        """Add the unit to the player's available units"""
-        self.game = game
+    def on_buy(self, team):
+        """Add the unit to the team's available units"""
+        self.team = team
         unit = self.unit_factory()
-        # Find first empty slot on player's side
-        for x in range(4):  # Player units on left half
-            for y in range(8):
-                if not game.board.get_unit_at(x, y):
-                    game.board.add_unit(unit, x, y, "player")
-                    game.player_units.append(unit)
-                    # Add to owned augments list for display
-                    if not hasattr(game, 'owned_augments'):
-                        game.owned_augments = []
-                    game.owned_augments.append(self)
-                    return True
+        # Find empty position for this team
+        position = team.find_empty_position()
+        if position:
+            x, y = position
+            if team.add_unit(unit, x, y):
+                return True
         return False  # No space available
 
 
@@ -51,27 +46,21 @@ class ItemAugment(Augment):
         super().__init__(name, description, cost)
         self.item_factory = item_factory
         
-    def on_buy(self, game):
-        """Add the item to the player's inventory"""
-        self.game = game
+    def on_buy(self, team):
+        """Add the item to the team's inventory"""
+        self.team = team
         item = self.item_factory()
         self.item = item  # Store reference to the created item
-        # Add to player's unequipped items
-        if not hasattr(game, 'unequipped_items'):
-            game.unequipped_items = []
-        game.unequipped_items.append(item)
-        # Add to owned augments list for display
-        if not hasattr(game, 'owned_augments'):
-            game.owned_augments = []
-        game.owned_augments.append(self)
+        # Add to team's unequipped items
+        team.unequipped_items.append(item)
         return True
     
     def is_equipped(self):
         """Check if this augment's item is currently equipped"""
-        if not hasattr(self, 'item') or not self.game:
+        if not hasattr(self, 'item') or not self.team:
             return False
         # Check if item is in unequipped items (means it's not equipped)
-        return self.item not in self.game.unequipped_items
+        return self.item not in self.team.unequipped_items
 
 
 class PassiveAugment(Augment):
@@ -81,18 +70,10 @@ class PassiveAugment(Augment):
         super().__init__(name, description, cost)
         self.active = False
         
-    def on_buy(self, game):
+    def on_buy(self, team):
         """Activate the passive effect"""
-        self.game = game
+        self.team = team
         self.active = True
-        # Add to game's passive augments list (for combat effects)
-        if not hasattr(game, 'passive_augments'):
-            game.passive_augments = []
-        game.passive_augments.append(self)
-        # Add to owned augments list for display
-        if not hasattr(game, 'owned_augments'):
-            game.owned_augments = []
-        game.owned_augments.append(self)
         return True
         
     def on_event(self, event_type, **kwargs):

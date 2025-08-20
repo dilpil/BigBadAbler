@@ -110,7 +110,7 @@ class TestGameSanity(unittest.TestCase):
         self.assertTrue(self.game.purchase_unit("paladin", 2, 2))
         
         # Verify purchases
-        self.assertEqual(len(self.game.owned_units), 2)
+        self.assertEqual(len(self.game.player_team.units), 2)
         self.assertEqual(self.game.gold, 0)  # 100 - 50 - 50 = 0
         
         # Verify units are on board
@@ -165,7 +165,7 @@ class TestGameRoundReset(unittest.TestCase):
         self.assertTrue(self.game.purchase_unit("necromancer", 1, 1))
         self.assertTrue(self.game.purchase_unit("paladin", 2, 2))
         
-        initial_units = len(self.game.owned_units)
+        initial_units = len(self.game.player_team.units)
         self.assertEqual(initial_units, 2)
         
         for round_num in range(1, 4):  # Rounds 1, 2, 3
@@ -175,15 +175,15 @@ class TestGameRoundReset(unittest.TestCase):
                 self.assertEqual(self.game.round, round_num)
                 
                 # Verify units are properly reset
-                for unit in self.game.owned_units:
+                for unit in self.game.player_team.units:
                     self.assertEqual(unit.hp, unit.max_hp, f"Unit {unit.name} not at full HP in round {round_num}")
                     self.assertEqual(unit.mp, unit.max_mp, f"Unit {unit.name} not at full MP in round {round_num}")
                     self.assertIsNone(unit.target, f"Unit {unit.name} still has target in round {round_num}")
                     self.assertEqual(unit.attack_timer, 0, f"Unit {unit.name} has attack timer in round {round_num}")
                 
                 # Verify units are back at original positions
-                necromancer = next((u for u in self.game.owned_units if u.unit_type == "necromancer"), None)
-                paladin = next((u for u in self.game.owned_units if u.unit_type == "paladin"), None)
+                necromancer = next((u for u in self.game.player_team.units if u.unit_type == "necromancer"), None)
+                paladin = next((u for u in self.game.player_team.units if u.unit_type == "paladin"), None)
                 
                 self.assertIsNotNone(necromancer)
                 self.assertIsNotNone(paladin)
@@ -214,7 +214,7 @@ class TestGameRoundReset(unittest.TestCase):
                     break
         
         # Verify we still have our original units (they should persist across rounds)
-        self.assertEqual(len(self.game.owned_units), initial_units)
+        self.assertEqual(len(self.game.player_team.units), initial_units)
 
 
 class TestUnitPersistence(unittest.TestCase):
@@ -249,18 +249,18 @@ class TestUnitPersistence(unittest.TestCase):
                 
                 # Check that all previously purchased units are still present
                 expected_unit_count = len(purchased_units)
-                actual_unit_count = len(self.game.owned_units)
+                actual_unit_count = len(self.game.player_team.units)
                 
                 print(f"Expected units: {expected_unit_count}, Actual units: {actual_unit_count}")
                 
                 if expected_unit_count != actual_unit_count:
                     print(f"ERROR: Unit count mismatch in round {round_num}")
                     print(f"Expected units from previous rounds: {[u['type'] for u in purchased_units]}")
-                    print(f"Actual units present: {[u.unit_type for u in self.game.owned_units]}")
+                    print(f"Actual units present: {[u.unit_type for u in self.game.player_team.units]}")
                     
                     # Check which specific units are missing
                     expected_types = [u['type'] for u in purchased_units]
-                    actual_types = [u.unit_type for u in self.game.owned_units]
+                    actual_types = [u.unit_type for u in self.game.player_team.units]
                     
                     for expected_type in expected_types:
                         count_expected = expected_types.count(expected_type)
@@ -274,7 +274,7 @@ class TestUnitPersistence(unittest.TestCase):
                 # Verify each previously purchased unit is still there with correct properties
                 for i, unit_info in enumerate(purchased_units):
                     found_unit = None
-                    for unit in self.game.owned_units:
+                    for unit in self.game.player_team.units:
                         if (unit.unit_type == unit_info['type'] and 
                             unit.original_x == unit_info['x'] and 
                             unit.original_y == unit_info['y']):
@@ -322,7 +322,7 @@ class TestUnitPersistence(unittest.TestCase):
                 print(f"Units on board (player): {len(self.game.board.player_units)}")
                 
                 # Verify the purchase worked
-                self.assertEqual(len(self.game.owned_units), len(purchased_units))
+                self.assertEqual(len(self.game.player_team.units), len(purchased_units))
                 self.assertEqual(len(self.game.board.player_units), len(purchased_units))
                 
                 # Start combat
@@ -341,8 +341,8 @@ class TestUnitPersistence(unittest.TestCase):
                     # Sanity check during combat - units shouldn't disappear mid-fight
                     if i % 100 == 0:  # Check every 100 frames
                         player_units_in_combat = len(self.game.board.player_units)
-                        # Units can die in combat, but owned_units should remain the same
-                        self.assertEqual(len(self.game.owned_units), len(purchased_units),
+                        # Units can die in combat, but player_team.units should remain the same
+                        self.assertEqual(len(self.game.player_team.units), len(purchased_units),
                                        f"Units disappeared during combat at frame {i}")
                 
                 # Force end combat if it didn't end naturally
@@ -353,7 +353,7 @@ class TestUnitPersistence(unittest.TestCase):
                 # After combat, verify we're back in shopping and units are still there
                 if not self.game.is_game_over():
                     self.assertEqual(self.game.phase, GamePhase.SHOPPING)
-                    post_combat_units = len(self.game.owned_units)
+                    post_combat_units = len(self.game.player_team.units)
                     print(f"Units after combat: {post_combat_units}")
                     
                     self.assertEqual(post_combat_units, len(purchased_units),
@@ -364,8 +364,8 @@ class TestUnitPersistence(unittest.TestCase):
         
         print(f"\nFinal summary:")
         print(f"Total units purchased: {len(purchased_units)}")
-        print(f"Final unit count: {len(self.game.owned_units)}")
-        print(f"Units by type: {[(u.unit_type, u.original_x, u.original_y) for u in self.game.owned_units]}")
+        print(f"Final unit count: {len(self.game.player_team.units)}")
+        print(f"Units by type: {[(u.unit_type, u.original_x, u.original_y) for u in self.game.player_team.units]}")
     
     def test_unit_persistence_with_deaths_and_summons(self):
         """Test unit persistence when units die and summons are created."""
@@ -373,14 +373,14 @@ class TestUnitPersistence(unittest.TestCase):
         self.game.purchase_unit("necromancer", 0, 0)
         self.game.purchase_unit("necromancer", 1, 1)
         
-        initial_owned_units = len(self.game.owned_units)  # Should be 2
+        initial_owned_units = len(self.game.player_team.units)  # Should be 2
         
         for round_num in range(1, 4):  # 3 rounds
             with self.subTest(round=round_num):
                 print(f"\n=== ROUND {round_num} (Deaths & Summons Test) ===")
                 
                 # Track units before combat
-                pre_combat_owned = len(self.game.owned_units)
+                pre_combat_owned = len(self.game.player_team.units)
                 pre_combat_on_board = len(self.game.board.player_units)
                 
                 print(f"Pre-combat: {pre_combat_owned} owned, {pre_combat_on_board} on board")
@@ -396,13 +396,13 @@ class TestUnitPersistence(unittest.TestCase):
                     
                     # Check every 250 frames
                     if i % 250 == 0:
-                        mid_combat_owned = len(self.game.owned_units)
+                        mid_combat_owned = len(self.game.player_team.units)
                         mid_combat_on_board = len(self.game.board.player_units)
                         print(f"Mid-combat frame {i}: {mid_combat_owned} owned, {mid_combat_on_board} on board")
                         
-                        # Owned units should never change during combat
+                        # Player team units should never change during combat
                         self.assertEqual(mid_combat_owned, pre_combat_owned,
-                                       f"Owned units changed during combat at frame {i}")
+                                       f"Player team units changed during combat at frame {i}")
                 
                 # Force end if needed
                 if self.game.phase == GamePhase.COMBAT:
@@ -411,14 +411,14 @@ class TestUnitPersistence(unittest.TestCase):
                 if self.game.is_game_over():
                     break
                 
-                # After combat, owned units should be the same
-                post_combat_owned = len(self.game.owned_units)
+                # After combat, player team units should be the same
+                post_combat_owned = len(self.game.player_team.units)
                 post_combat_on_board = len(self.game.board.player_units)
                 
                 print(f"Post-combat: {post_combat_owned} owned, {post_combat_on_board} on board")
                 
                 self.assertEqual(post_combat_owned, initial_owned_units,
-                               f"Owned units changed after round {round_num}")
+                               f"Player team units changed after round {round_num}")
                 self.assertEqual(post_combat_on_board, initial_owned_units,
                                f"Board units don't match owned units after round {round_num}")
     
@@ -456,7 +456,7 @@ class TestUnitPersistence(unittest.TestCase):
                     break
                     
                 # Verify all units still exist
-                current_count = len(self.game.owned_units)
+                current_count = len(self.game.player_team.units)
                 self.assertEqual(current_count, initial_count,
                                f"Unit count mismatch in stress round {round_num}: expected {initial_count}, got {current_count}")
                 
@@ -474,7 +474,7 @@ class TestUnitPersistence(unittest.TestCase):
                     self.game.end_combat()
                 
                 # Check again after rapid transition
-                final_count = len(self.game.owned_units)
+                final_count = len(self.game.player_team.units)
                 self.assertEqual(final_count, initial_count,
                                f"Units lost during rapid transition in round {round_num}")
 
