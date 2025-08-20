@@ -46,6 +46,9 @@ class PyUI:
         self.dragging_unit = None
         self.drag_offset = (0, 0)
         
+        # Triple speed when tilde key is held
+        self.triple_speed = False
+        
         self.colors = {
             'background': (20, 0, 40),
             'board_bg': (40, 20, 60),
@@ -160,8 +163,19 @@ class PyUI:
                     running = False
                 else:
                     self.handle_event(event)
-                    
-            self.update(dt)
+            
+            # Check if tilde key is currently held down
+            keys = pygame.key.get_pressed()
+            self.triple_speed = keys[pygame.K_BACKQUOTE]  # Tilde/backtick key
+            
+            # Update game (possibly multiple times for triple speed)
+            if self.triple_speed:
+                # Run 3 updates per frame for triple speed
+                for _ in range(3):
+                    self.update(dt)
+            else:
+                self.update(dt)
+            
             self.draw()
             
             dt = self.clock.tick(self.fps) / 1000.0
@@ -745,8 +759,30 @@ class PyUI:
         # Draw victory/defeat banner during post-combat
         if self.game.phase == GamePhase.POST_COMBAT:
             self.draw_combat_result_banner()
+        
+        # Draw triple speed indicator
+        if self.triple_speed:
+            self.draw_triple_speed_indicator()
             
         pygame.display.flip()
+    
+    def draw_triple_speed_indicator(self):
+        """Draw a visual indicator that triple speed is active"""
+        # Draw in top-right corner
+        indicator_text = "3X SPEED"
+        text_surface = self.fonts['large'].render(indicator_text, True, (255, 255, 0))  # Yellow text
+        
+        # Position in top-right corner with some padding
+        text_rect = text_surface.get_rect()
+        text_rect.topright = (self.width - 20, 20)
+        
+        # Draw background rectangle
+        bg_rect = text_rect.inflate(20, 10)  # Add padding around text
+        pygame.draw.rect(self.screen, (100, 50, 0), bg_rect)  # Dark orange background
+        pygame.draw.rect(self.screen, (255, 255, 0), bg_rect, 2)  # Yellow border
+        
+        # Draw the text
+        self.screen.blit(text_surface, text_rect)
         
     def draw_board(self):
         board_width = 8 * self.tile_size

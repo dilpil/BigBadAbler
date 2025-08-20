@@ -71,8 +71,15 @@ class Skill:
         return units
     
     def find_summon_position(self, caster) -> Optional[tuple]:
-        """Find a valid position adjacent to the caster for summoning"""
-        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        """Find a valid position adjacent to the caster for summoning, preferring front positions"""
+        # Determine front direction based on team
+        # Player units (left side) face right (+x), enemy units (right side) face left (-x)
+        if caster.team == "player":
+            # Player team: prefer right (front), then forward diagonals, then sides, then back
+            directions = [(1, 0), (1, -1), (1, 1), (0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1)]
+        else:
+            # Enemy team: prefer left (front), then forward diagonals, then sides, then back  
+            directions = [(-1, 0), (-1, -1), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
         
         for dx, dy in directions:
             x, y = caster.x + dx, caster.y + dy
