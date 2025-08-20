@@ -74,95 +74,49 @@ class Game:
         self.add_message(f"Round {self.round} - Shopping Phase")
     
     def generate_enemy_team(self):
-        from content.unit_registry import create_unit, get_available_units
-        from content.items import get_all_items, create_item
+        from content.augments import generate_augment_shop
         import random
         
-        # Enemy team gets a budget equal to total gold player has earned
-        enemy_budget = self.total_gold_earned
+        # Enemy gets same budget as player per round (200 gold)
+        enemy_budget = 200
         self.add_message(f"Enemy budget: {enemy_budget} gold")
         
-        # At least half the budget must be spent on units
-        min_unit_budget = enemy_budget // 2
-        
+        # Clear enemy team
         self.enemy_team = []
+        
+        # Create a temporary enemy game state to use augment purchasing
+        enemy_augments = generate_augment_shop(20)  # Larger pool for enemy to choose from
         remaining_budget = enemy_budget
-        enemy_units_purchased = 0  # Track for escalating unit costs
+        enemy_owned_augments = []
+        enemy_unequipped_items = []
         
-        # Phase 1: Buy units using escalating costs (40, 60, 80, etc.)
-        unit_types = get_available_units()
+        # Randomly purchase augments until budget is exhausted
+        random.shuffle(enemy_augments)  # Randomize order
         
-        while len(self.enemy_team) < 6:
-            # Calculate current unit cost using escalating formula
-            current_unit_cost = 40 + (enemy_units_purchased * 20)
-            
-            if remaining_budget < current_unit_cost:
-                break
-                
-            # Check if we should stop buying units to save budget for upgrades
-            if (enemy_budget - remaining_budget) >= min_unit_budget and random.random() < 0.4:
-                break
-            
-            unit_type = random.choice(unit_types)
-            unit = create_unit(unit_type)
-            if unit:
-                self.enemy_team.append(unit)
-                remaining_budget -= current_unit_cost
-                enemy_units_purchased += 1
+        for augment in enemy_augments:
+            if remaining_budget >= augment.cost:
+                # 70% chance to buy each affordable augment (makes enemy slightly less optimal than player)
+                if random.random() < 0.7:
+                    # Simulate purchasing the augment
+                    if augment.on_buy(self):
+                        remaining_budget -= augment.cost
+                        enemy_owned_augments.append(augment)
+                        
+                        # For ItemAugments, move items from unequipped to a separate enemy pool
+                        from augment import ItemAugment
+                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
+                            if augment.item in self.unequipped_items:
+                                self.unequipped_items.remove(augment.item)
+                                enemy_unequipped_items.append(augment.item)
         
-        # Phase 2: Buy passive skills and items with remaining budget
-        all_items = get_all_items()
+        # Equip items to enemy units randomly
+        for item in enemy_unequipped_items:
+            available_units = [unit for unit in self.enemy_team if len(unit.items) < 3]
+            if available_units:
+                unit = random.choice(available_units)
+                unit.add_item(item)
         
-        for unit in self.enemy_team:
-            # Try to buy passive skills using escalating costs (30, 50, 70, etc.)
-            available_passives = unit.get_available_passive_skills()
-            if available_passives:
-                random.shuffle(available_passives)
-                
-                for passive_name in available_passives:
-                    # Calculate escalating passive cost
-                    passive_cost = 30 + (len(unit.passive_skills) * 20)
-                    
-                    if remaining_budget >= passive_cost and len(unit.passive_skills) < 5:  # Max 5 passives
-                        self._add_passive_skill_to_unit(unit, passive_name)
-                        remaining_budget -= passive_cost
-                    
-                    # 60% chance to stop after each purchase to spread upgrades across units
-                    if random.random() < 0.6:
-                        break
-            
-            # Try to buy items (max 3 per unit)
-            num_items_to_try = min(random.randint(0, 3), 3 - len(unit.items))
-            for _ in range(num_items_to_try):
-                if remaining_budget <= 0:
-                    break
-                    
-                item_name = random.choice(all_items)
-                item = create_item(item_name)
-                if item and remaining_budget >= item.cost:
-                    unit.add_item(item)
-                    remaining_budget -= item.cost
-    
-    def _add_passive_skill_to_unit(self, unit, skill_name):
-        """Add a passive skill to a unit"""
-        # Import the appropriate skill creation function based on unit type
-        if unit.unit_type == UnitType.NECROMANCER:
-            from content.units.necromancer import create_necromancer_skill
-            skill = create_necromancer_skill(skill_name)
-        elif unit.unit_type == UnitType.PALADIN:
-            from content.units.paladin import create_paladin_skill
-            skill = create_paladin_skill(skill_name)
-        elif unit.unit_type == UnitType.PYROMANCER:
-            from content.units.pyromancer import create_pyromancer_skill
-            skill = create_pyromancer_skill(skill_name)
-        elif unit.unit_type == UnitType.BERSERKER:
-            from content.units.berserker import create_berserker_skill
-            skill = create_berserker_skill(skill_name)
-        else:
-            skill = None
-            
-        if skill and skill.is_passive:
-            unit.add_passive_skill(skill)
+        self.add_message(f"Enemy spent {enemy_budget - remaining_budget} gold, {remaining_budget} left over")
     
     def generate_augment_shop(self):
         from content.augments import generate_augment_shop

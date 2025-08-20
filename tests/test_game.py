@@ -517,7 +517,7 @@ class TestUnitReset(unittest.TestCase):
         unit.cast_jump_timer = 0.2
         
         # Add a status effect
-        poison = PoisonEffect(5.0)
+        poison = PoisonEffect(None)
         unit.status_effects.append(poison)
         
         # Add a spell 

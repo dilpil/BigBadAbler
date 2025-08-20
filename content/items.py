@@ -140,7 +140,7 @@ class ScorpionTail(Item):
             target = kwargs.get("target")
             if target and target.is_alive():
                 # Apply poison status effect
-                poison = DamageOverTimeEffect("Poison", 5.0, 5.0, "magical")
+                poison = DamageOverTimeEffect("Poison", None, 5.0, "magical")
                 poison.source = self.unit
                 target.add_status_effect(poison)
 
@@ -170,7 +170,7 @@ class Sunderer(Item):
             target = kwargs.get("target")
             if target and target.is_alive():
                 # Apply sunder debuff
-                sunder = StatModifierEffect("Sunder", 3.0, {"armor": -5})
+                sunder = StatModifierEffect("Sunder", None, {"armor": -5})
                 sunder.source = self.unit
                 target.add_status_effect(sunder)
 
@@ -263,7 +263,7 @@ class SnowGlobe(Item):
                 target = kwargs.get("unit")
                 if target and target.is_alive():
                     # Apply chill debuff
-                    chill = StatModifierEffect("Chill", 2.0, {"attack_speed": -3, "move_speed": -0.03})
+                    chill = StatModifierEffect("Chill", None, {"attack_speed": -3, "move_speed": -0.03})
                     chill.source = self.unit
                     target.add_status_effect(chill)
 

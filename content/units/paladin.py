@@ -157,7 +157,7 @@ class Protection(Skill):
                 # Check if ally already has protection buff
                 has_protection = any(e.name == "Protection" for e in ally.status_effects)
                 if not has_protection:
-                    effect = StatModifierEffect("Protection", 2.0, {"armor": self.armor_bonus, "magic_resist": self.mr_bonus})
+                    effect = StatModifierEffect("Protection", None, {"armor": self.armor_bonus, "magic_resist": self.mr_bonus})
                     effect.source = self.owner
                     ally.add_status_effect(effect)
 

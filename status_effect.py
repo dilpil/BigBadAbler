@@ -2,7 +2,7 @@ from typing import Dict, Optional
 from constants import FRAME_TIME
 
 class StatusEffect:
-    def __init__(self, name: str, duration: float):
+    def __init__(self, name: str, duration: Optional[float]):
         self.name = name
         self.duration = duration
         self.remaining_duration = duration
@@ -21,7 +21,8 @@ class StatusEffect:
         self.unit = None
         
     def update(self, dt: float):
-        self.remaining_duration -= dt
+        if self.remaining_duration is not None:
+            self.remaining_duration -= dt
         
         if self.tick_interval > 0:
             self.tick_timer += dt
@@ -33,14 +34,14 @@ class StatusEffect:
         pass
     
     def is_expired(self) -> bool:
-        return self.remaining_duration <= 0
+        return self.remaining_duration is not None and self.remaining_duration <= 0
     
     def on_event(self, event_type: str, **kwargs):
         pass
 
 
 class DamageOverTimeEffect(StatusEffect):
-    def __init__(self, name: str, duration: float, damage_per_tick: float, damage_type: str = "magical"):
+    def __init__(self, name: str, duration: Optional[float], damage_per_tick: float, damage_type: str = "magical"):
         super().__init__(name, duration)
         self.damage_per_tick = damage_per_tick
         self.damage_type = damage_type
@@ -61,7 +62,7 @@ class HealOverTimeEffect(StatusEffect):
 
 
 class StatModifierEffect(StatusEffect):
-    def __init__(self, name: str, duration: float, stat_changes: Dict[str, float]):
+    def __init__(self, name: str, duration: Optional[float], stat_changes: Dict[str, float]):
         super().__init__(name, duration)
         self.stat_modifiers = stat_changes
         
@@ -79,19 +80,19 @@ class StatModifierEffect(StatusEffect):
 
 
 class PoisonEffect(DamageOverTimeEffect):
-    def __init__(self, duration: float = 5.0, damage: float = 5.0):
+    def __init__(self, duration: Optional[float] = None, damage: float = 5.0):
         super().__init__("Poison", duration, damage, "magical")
         self.tick_interval = 5 * FRAME_TIME
 
 
 class WeaknessEffect(StatModifierEffect):
-    def __init__(self, duration: float = 3.0, damage_reduction: float = 0.25):
+    def __init__(self, duration: Optional[float] = None, damage_reduction: float = 0.25):
         super().__init__("Weakness", duration, {"strength": -25, "intelligence": -25})
         self.damage_reduction = damage_reduction
 
 
 class DumbfoundEffect(StatusEffect):
-    def __init__(self, duration: float = 2.0):
+    def __init__(self, duration: Optional[float] = None):
         super().__init__("Dumbfound", duration)
         
     def apply(self, unit):
@@ -102,13 +103,13 @@ class DumbfoundEffect(StatusEffect):
 
 
 class RegenerationEffect(HealOverTimeEffect):
-    def __init__(self, duration: float = 5.0, heal: float = 3.0):
+    def __init__(self, duration: Optional[float] = None, heal: float = 3.0):
         super().__init__("Regeneration", duration, heal)
         self.tick_interval = 5 * FRAME_TIME
 
 
 class ProtectionEffect(StatModifierEffect):
-    def __init__(self, duration: float = 4.0):
+    def __init__(self, duration: Optional[float] = None):
         super().__init__("Protection", duration, {})
         
     def apply(self, unit):
@@ -149,7 +150,7 @@ class AbsorbShieldEffect(StatusEffect):
 
 class PlagueEffect(DamageOverTimeEffect):
     """Disease that spreads to nearby enemies"""
-    def __init__(self, name: str, duration: float, damage_per_tick: float, spread_radius: int = 2):
+    def __init__(self, name: str, duration: Optional[float], damage_per_tick: float, spread_radius: int = 2):
         super().__init__(name, duration, damage_per_tick)
         self.spread_radius = spread_radius
         self.spread_timer = 0.0
