@@ -1751,7 +1751,10 @@ class PyUI:
             lines.append("")
             lines.append("STATUS EFFECTS:")
             for status in unit.status_effects:
-                duration_text = f" ({status.remaining_duration:.1f}s)" if hasattr(status, 'remaining_duration') else ""
+                if hasattr(status, 'remaining_duration') and status.remaining_duration is not None:
+                    duration_text = f" ({status.remaining_duration:.1f}s)"
+                else:
+                    duration_text = ""  # Permanent effect
                 lines.append(f"• {status.name}{duration_text}")
                 
         return '\n'.join(lines)
