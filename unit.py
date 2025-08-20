@@ -428,6 +428,12 @@ class Unit:
             if hasattr(passive, 'reset'):
                 passive.reset()
         
+        # Reset items - remove and re-apply to clear temporary bonuses
+        items_to_reset = self.items.copy()  # Copy list to avoid modification during iteration
+        for item in items_to_reset:
+            item.remove_from_unit(self)
+            item.apply_to_unit(self)
+        
         # Combat state
         self.target = None
         self.state = UnitState.IDLE

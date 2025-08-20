@@ -53,11 +53,28 @@ class FrenzyMask(Item):
         super().__init__("Frenzy Mask", "On attack: +5% attack speed, +10 armor", 45)
         self.stats = {"armor": 10}
         self.stacks = 0
+        self.applied_attack_speed = 0  # Track how much attack speed we've added
         
     def on_event(self, event_type: str, **kwargs):
         if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
             self.stacks += 1
+            # Add 5 attack speed and track it
             self.unit.attack_speed += 5
+            self.applied_attack_speed += 5
+    
+    def remove_from_unit(self, unit):
+        # Remove all applied attack speed bonuses before calling parent method
+        if hasattr(self, 'applied_attack_speed'):
+            unit.attack_speed -= self.applied_attack_speed
+            self.applied_attack_speed = 0
+        self.stacks = 0
+        super().remove_from_unit(unit)
+    
+    def apply_to_unit(self, unit):
+        # Reset tracking when applied to a new unit
+        self.applied_attack_speed = 0
+        self.stacks = 0
+        super().apply_to_unit(unit)
             
 
 class Thrumblade(Item):
@@ -65,6 +82,7 @@ class Thrumblade(Item):
         super().__init__("Thrumblade", "Every second: +5 attack damage, +10% max HP", 50)
         self.stats = {"max_hp": 0, "percent_hp": 0.1}
         self.timer = 0
+        self.applied_attack_damage = 0  # Track how much attack damage we've added
         
     def on_frame(self, dt: float):
         if self.unit:
@@ -72,6 +90,21 @@ class Thrumblade(Item):
             if self.timer >= 1.0:
                 self.timer -= 1.0
                 self.unit.attack_damage += 5
+                self.applied_attack_damage += 5
+    
+    def remove_from_unit(self, unit):
+        # Remove all applied attack damage bonuses before calling parent method
+        if hasattr(self, 'applied_attack_damage'):
+            unit.attack_damage -= self.applied_attack_damage
+            self.applied_attack_damage = 0
+        self.timer = 0
+        super().remove_from_unit(unit)
+    
+    def apply_to_unit(self, unit):
+        # Reset tracking when applied to a new unit
+        self.applied_attack_damage = 0
+        self.timer = 0
+        super().apply_to_unit(unit)
 
 
 class HammerOfBam(Item):
@@ -329,6 +362,8 @@ class ArmorOfTime(Item):
         super().__init__("Armor of Time", "+10 armor/MR, +2 armor/MR per second", 65)
         self.stats = {"armor": 10, "magic_resist": 10}
         self.timer = 0
+        self.applied_armor = 0  # Track how much armor we've added
+        self.applied_magic_resist = 0  # Track how much MR we've added
         
     def on_frame(self, dt: float):
         if self.unit:
@@ -337,6 +372,26 @@ class ArmorOfTime(Item):
                 self.timer -= 1.0
                 self.unit.armor += 2
                 self.unit.magic_resist += 2
+                self.applied_armor += 2
+                self.applied_magic_resist += 2
+    
+    def remove_from_unit(self, unit):
+        # Remove all applied bonuses before calling parent method
+        if hasattr(self, 'applied_armor'):
+            unit.armor -= self.applied_armor
+            self.applied_armor = 0
+        if hasattr(self, 'applied_magic_resist'):
+            unit.magic_resist -= self.applied_magic_resist
+            self.applied_magic_resist = 0
+        self.timer = 0
+        super().remove_from_unit(unit)
+    
+    def apply_to_unit(self, unit):
+        # Reset tracking when applied to a new unit
+        self.applied_armor = 0
+        self.applied_magic_resist = 0
+        self.timer = 0
+        super().apply_to_unit(unit)
 
 
 def create_item(item_name: str) -> Item:
