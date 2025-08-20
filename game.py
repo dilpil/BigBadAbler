@@ -22,7 +22,7 @@ class Game:
         self.round = 0
         self.player_lives = 5
         self.player_wins = 0
-        self.gold = 200
+        self.gold = 120
         
         self.phase = GamePhase.SHOPPING
         self.board = Board()
@@ -53,9 +53,15 @@ class Game:
         
     def start_new_round(self):
         self.round += 1
-        gold_gained = 200  # Each round gets 200 gold
-        self.gold = gold_gained
-        self.total_gold_earned += gold_gained  # Track total gold earned
+        if self.round == 1:
+            # First round: player starts with 120 gold
+            self.gold = 120
+            self.total_gold_earned = 120
+        else:
+            # Subsequent rounds: gain 60 gold per round
+            gold_gained = 60
+            self.gold += gold_gained
+            self.total_gold_earned += gold_gained
         self.phase = GamePhase.SHOPPING
         self.combat_time = 0
         
@@ -72,8 +78,9 @@ class Game:
         self.add_message(f"Round {self.round} - Shopping Phase")
     
     def generate_enemy_team(self):
-        # Delegate to the enemy team's own generation method
-        self.enemy_team.generate_enemy_team(200, self)
+        # Enemy gets same total gold as player has earned
+        enemy_budget = self.total_gold_earned
+        self.enemy_team.generate_enemy_team(enemy_budget, self)
     
     def generate_augment_shop(self):
         from content.augments import generate_augment_shop
@@ -312,8 +319,8 @@ class Game:
     def end_combat(self):
         """Actually end combat and start new round"""
         # Trigger passive augments' round end effects
-        self.player_team.on_round_end()
-        self.enemy_team.on_round_end()
+        self.player_team.on_round_end(self)
+        self.enemy_team.on_round_end(self)
         
         self.combat_result = None
         self.start_new_round()

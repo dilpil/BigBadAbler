@@ -93,11 +93,11 @@ class GoldGenerationAugment(PassiveAugment):
             30
         )
         
-    def on_round_end(self):
+    def on_round_end(self, game=None):
         """Add extra gold at the end of the round (only works for player teams)"""
         # This augment only makes sense for player teams
-        if self.team and self.team.name == "player" and hasattr(self.team, 'board') and self.team.board and hasattr(self.team.board, 'game'):
-            self.team.board.game.gold += 10
+        if self.team and self.team.name == "player" and game:
+            game.gold += 10
 
 
 # Item Augments - wrap existing items

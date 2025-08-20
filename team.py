@@ -96,13 +96,21 @@ class Team:
             if hasattr(augment, 'on_battle_start'):
                 augment.on_battle_start()
     
-    def on_round_end(self):
+    def on_round_end(self, game=None):
         """Called at the end of round - trigger passive augment effects"""
         for augment in self.passive_augments:
             if hasattr(augment, 'on_round_end'):
-                augment.on_round_end()
+                # Try to pass game object if augment accepts it
+                if game:
+                    try:
+                        augment.on_round_end(game)
+                    except TypeError:
+                        # Augment doesn't accept game parameter, call without it
+                        augment.on_round_end()
+                else:
+                    augment.on_round_end()
     
-    def generate_enemy_team(self, budget: int = 200, game=None):
+    def generate_enemy_team(self, budget: int = 120, game=None):
         """Generate an enemy team with random allocation: 50%+ units, remainder split between upgrades and augments"""
         from content.augments import generate_augment_shop
         from augment import ItemAugment, UnitAugment, PassiveAugment
@@ -130,7 +138,7 @@ class Team:
         
         upgrade_budget = int(budget * upgrade_percentage)
         augment_budget = int(budget * augment_percentage)
-        
+
         if game:
             game.add_message(f"Enemy allocation: {unit_percentage:.1%} units ({unit_budget}g), {upgrade_percentage:.1%} upgrades ({upgrade_budget}g), {augment_percentage:.1%} augments ({augment_budget}g)")
         
@@ -158,7 +166,7 @@ class Team:
                 break  # Failed to create unit
         
         # Phase 2: Buy upgrades (passive skills) with upgrade budget
-        remaining_upgrade_budget = upgrade_budget
+        remaining_upgrade_budget = upgrade_budget + remaining_unit_budget
         
         while remaining_upgrade_budget >= 30 and self.units:  # 30 is base passive cost
             # Pick a random unit that can still get upgrades
@@ -207,7 +215,7 @@ class Team:
                 break  # Can't afford more upgrades
         
         # Phase 3: Buy augments with augment budget
-        remaining_augment_budget = augment_budget
+        remaining_augment_budget = augment_budget + remaining_upgrade_budget
         enemy_augments = generate_augment_shop(20)  # Larger pool for enemy to choose from
         random.shuffle(enemy_augments)  # Randomize order
         
