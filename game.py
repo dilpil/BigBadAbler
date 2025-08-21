@@ -50,18 +50,19 @@ class Game:
         self.total_gold_earned = 0
         
         self.message_log = []
-        
+    
+    def give_gold(self, amount: int, bonus: bool = False):
+        self.gold += amount
+        if not bonus:
+            self.total_gold_earned += amount
+
     def start_new_round(self):
         self.round += 1
         if self.round == 1:
-            # First round: player starts with 120 gold
-            self.gold = 120
-            self.total_gold_earned = 120
+            self.give_gold(120)
         else:
             # Subsequent rounds: gain 60 gold per round
-            gold_gained = 60
-            self.gold += gold_gained
-            self.total_gold_earned += gold_gained
+            self.give_gold(60)
         self.phase = GamePhase.SHOPPING
         self.combat_time = 0
         

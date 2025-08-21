@@ -97,7 +97,7 @@ class GoldGenerationAugment(PassiveAugment):
         """Add extra gold at the end of the round (only works for player teams)"""
         # This augment only makes sense for player teams
         if self.team and self.team.name == "player" and game:
-            game.gold += 10
+            game.give_gold(10, bonus=True)
 
 
 # Item Augments - wrap existing items
