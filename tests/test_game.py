@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from board import Board
 from unit import Unit
 from game import Game, GamePhase, GameMode
-from content.units import create_unit, get_available_units
+from content.unit_registry import create_unit, get_available_units
 from content.items import generate_item_shop
 from constants import FRAME_TIME
 
@@ -85,13 +85,13 @@ class TestGameSanity(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         # Override create methods
-        from content.units import create_unit
+        from content.unit_registry import create_unit
         from skill_factory import create_skill
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill
         
         # Override cost methods  
-        from content.units import get_unit_cost
+        from content.unit_registry import get_unit_cost
         from skill_factory import get_skill_cost
         self.game.get_unit_cost = get_unit_cost
         self.game.get_skill_cost = get_skill_cost
@@ -150,7 +150,7 @@ class TestGameRoundReset(unittest.TestCase):
         self.game.available_units = get_available_units()
         self.game.available_items = generate_item_shop()
         
-        from content.units import create_unit, get_unit_cost
+        from content.unit_registry import create_unit, get_unit_cost
         from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill
@@ -226,7 +226,7 @@ class TestUnitPersistence(unittest.TestCase):
         self.game.available_units = get_available_units()
         self.game.available_items = generate_item_shop()
         
-        from content.units import create_unit, get_unit_cost
+        from content.unit_registry import create_unit, get_unit_cost
         from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
         self.game.create_skill = create_skill

@@ -345,7 +345,7 @@ class LifeDrainSpell(Skill):
 
 
 
-def create_necromancer_skill(skill_name) -> Skill:
+def create_necromancer_skill(skill_identifier) -> Skill:
     """Create necromancer-specific skills"""
     skill_classes = {
         # Active skill (only one)
@@ -360,12 +360,7 @@ def create_necromancer_skill(skill_name) -> Skill:
         PassiveSkill.BONE_SABERS: BoneSabers,
     }
     
-    # Handle both string and enum inputs for backwards compatibility
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-        
+    skill_class = skill_classes.get(skill_identifier)
     if skill_class:
         return skill_class()
     return None
