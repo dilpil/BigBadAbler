@@ -161,7 +161,10 @@ On attacking, the unit bumps towards its target a bit.
 # Tooltip Visuals
 During either phase, mousing over a unit, item, or skill will show a tooltip explaining what that thing does.
 
-# Misc
+# Misc and style
 Do not write unicode-only symbols into files, use only ascii characters
 Do not try to redirect output to null
 Try not to make multilevel inheritance heirarchies except when absolutely warranted.  Make generalized, useful, configurable base classes that specific content can inherit from directly instead.
+tests can be run via run_tests, individual tests should be placed in the tests subfolder
+Backwards compatibility is not a good excuse to do something.  If you need to refactor something then you also need to refactor all calls and references to it.
+Prefer to use enums to magic strings
