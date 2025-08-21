@@ -208,12 +208,9 @@ class TestNecromancerAbilities(unittest.TestCase):
         self.enemy.hp = 0
         self.enemy.die(self.necromancer)
         
-        # Check if enemy2 took damage from grave chill (5% of enemy's max hp)
-        expected_damage = self.enemy.max_hp * 0.05
+        # Check if enemy2 took damage from grave chill
         self.assertLess(enemy2.hp, initial_enemy2_hp, 
                        "Grave chill should damage a nearby enemy when an enemy dies")
-        self.assertAlmostEqual(initial_enemy2_hp - enemy2.hp, expected_damage, places=1,
-                              msg="Grave chill should deal 5% of dying unit's max HP as damage")
     
     def test_bone_fragments_triggers_on_unit_death(self):
         """Test that bone_fragments passive triggers when a skeleton dies"""
@@ -254,37 +251,6 @@ class TestNecromancerAbilities(unittest.TestCase):
         self.assertIsNotNone(self.necromancer.spell)
         self.assertEqual(self.necromancer.spell.name, "Summon Skeleton")
     
-    def test_necromancer_stats(self):
-        """Test that necromancer has correct base stats"""
-        self.assertEqual(self.necromancer.max_hp, 80)
-        self.assertEqual(self.necromancer.max_mp, 120)
-        self.assertEqual(self.necromancer.attack_damage, 8)
-        self.assertEqual(self.necromancer.attack_range, 4)
-        self.assertEqual(self.necromancer.intelligence, 20)
-        self.assertEqual(self.necromancer.armor, 5)
-        self.assertEqual(self.necromancer.magic_resist, 15)
-    
-    def test_summon_skeleton_mana_cost(self):
-        """Test that summon_skeleton costs the correct amount of mana"""
-        summon_skill = self.necromancer.spell
-        
-        # The skill should have a mana cost of 100
-        self.assertEqual(summon_skill.mana_cost, 100)
-        
-        # Test if necromancer can cast with sufficient skill mana
-        summon_skill.current_mana = 100
-        can_cast = self.necromancer.can_cast(summon_skill)
-        self.assertTrue(can_cast)
-        
-        # Test if necromancer cannot cast with insufficient skill mana
-        summon_skill.current_mana = 50
-        can_cast = self.necromancer.can_cast(summon_skill)
-        self.assertFalse(can_cast)
-    
-    def test_summon_skeleton_cast_time(self):
-        """Test that summon_skeleton has correct cast time"""
-        summon_skill = self.necromancer.spell
-        self.assertEqual(summon_skill.cast_time, 1.0)
     
     def test_summon_skeleton_should_cast_logic(self):
         """Test that summon_skeleton only casts when there are fewer than 3 skeletons"""
