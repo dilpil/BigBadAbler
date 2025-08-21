@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from board import Board
 from game import Game, GameMode
 from content.units.necromancer import create_necromancer, create_necromancer_skill
-from unit import Unit, UnitType
+from unit import Unit, UnitType, PassiveSkill
 
 
 class TestAllNecromancerAbilities(unittest.TestCase):
@@ -68,7 +68,7 @@ class TestAllNecromancerAbilities(unittest.TestCase):
     def test_undead_horde_summons_multiple_skeletons(self):
         """Test that undead_horde passive causes multiple skeleton summoning"""
         # Add undead horde passive
-        undead_horde = create_necromancer_skill("undead_horde")
+        undead_horde = create_necromancer_skill(PassiveSkill.UNDEAD_HORDE)
         self.necromancer.add_passive_skill(undead_horde)
         
         summon_skill = create_necromancer_skill("summon_skeleton")
@@ -84,7 +84,7 @@ class TestAllNecromancerAbilities(unittest.TestCase):
     def test_bone_sabers_increases_skeleton_damage(self):
         """Test that bone_sabers passive increases skeleton damage"""
         # Add bone sabers passive
-        bone_sabers = create_necromancer_skill("bone_sabers")
+        bone_sabers = create_necromancer_skill(PassiveSkill.BONE_SABERS)
         self.necromancer.add_passive_skill(bone_sabers)
         
         summon_skill = create_necromancer_skill("summon_skeleton")
@@ -106,7 +106,7 @@ class TestAllNecromancerAbilities(unittest.TestCase):
     def test_hunger_gives_skeleton_life_drain(self):
         """Test that hunger passive gives skeletons life drain spell"""
         # Add hunger passive
-        hunger = create_necromancer_skill("hunger")
+        hunger = create_necromancer_skill(PassiveSkill.HUNGER)
         self.necromancer.add_passive_skill(hunger)
         
         summon_skill = create_necromancer_skill("summon_skeleton")
@@ -128,7 +128,7 @@ class TestAllNecromancerAbilities(unittest.TestCase):
     def test_burning_bones_adds_aura_to_skeletons(self):
         """Test that burning_bones passive adds fire aura to skeletons"""
         # Add burning bones passive
-        burning_bones = create_necromancer_skill("burning_bones")
+        burning_bones = create_necromancer_skill(PassiveSkill.BURNING_BONES)
         self.necromancer.add_passive_skill(burning_bones)
         
         summon_skill = create_necromancer_skill("summon_skeleton")
