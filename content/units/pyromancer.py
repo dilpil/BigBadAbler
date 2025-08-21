@@ -5,7 +5,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from unit import Unit, UnitType, PassiveSkill
 from skill import Skill
 from projectile import Projectile
-from cloud_effect import FirestormCloud
 from status_effect import StatusEffect, StatModifierEffect
 import math
 
@@ -86,6 +85,64 @@ class StunEffect(StatusEffect):
 
 # ===== PYROMANCER SKILLS =====
 
+def apply_fireball_passive_effects(caster, enemies_hit, allies_in_area, total_damage_dealt, x, y, radius, damage):
+    """Apply passive skill effects for fireball explosion"""
+    # Firestorm: Create damage zone
+    if PassiveSkill.FIRESTORM in caster.passive_skills:
+        from cloud_effect import CloudEffect
+        firestorm_damage = damage * 0.5  # 50% of initial damage
+        
+        class FirestormCloud(CloudEffect):
+            def __init__(self, x, y, radius, damage_per_second, source):
+                super().__init__("Firestorm", x, y, radius, 2.0)  # 2 second duration
+                self.damage_per_second = damage_per_second
+                self.source = source
+                self.tick_interval = 0.5
+                self.tick_timer = 0
+                
+            def on_tick(self):
+                if not self.source.board:
+                    return
+                units = self.source.board.get_units_in_range(int(self.x), int(self.y), self.radius)
+                for unit in units:
+                    if unit.team != self.source.team and unit.is_alive():
+                        unit.take_damage(self.damage_per_second * self.tick_interval, "fire", self.source)
+        
+        firestorm = FirestormCloud(x, y, radius, firestorm_damage, caster)
+        caster.board.add_cloud_effect(firestorm)
+        
+    # Shrapnel: Shoot projectiles at 4 nearest enemies
+    if PassiveSkill.SHRAPNEL in caster.passive_skills:
+        # Find all enemies
+        enemies = caster.board.get_enemy_units(caster.team)
+        if enemies:
+            # Sort by distance to explosion point
+            enemies.sort(key=lambda e: caster.board.get_distance_to_point(e, x, y))
+            
+            # Create projectiles for up to 4 nearest enemies
+            from projectile import Projectile
+            for enemy in enemies[:4]:
+                if enemy.is_alive():
+                    shrapnel = Projectile(type('DummySource', (), {
+                        'x': x, 'y': y, 'team': caster.team
+                    })(), enemy, speed=12)
+                    shrapnel_damage = damage * 0.3  # 30% of fireball damage as physical
+                    shrapnel.on_hit_callback = lambda target, dmg=shrapnel_damage: target.take_damage(dmg, "physical", caster)
+                    caster.board.add_projectile(shrapnel)
+            
+    # Flame Bath: Heal allies
+    if PassiveSkill.FLAME_BATH in caster.passive_skills and total_damage_dealt > 0:
+        heal_amount = total_damage_dealt * 0.5 / len(allies_in_area) if allies_in_area else 0
+        for ally in allies_in_area:
+            ally.heal(heal_amount, caster)
+            
+    # Flameshock: Stun enemies
+    if PassiveSkill.FLAMESHOCK in caster.passive_skills:
+        for enemy in enemies_hit:
+            stun = StunEffect(1.5)
+            stun.source = caster
+            enemy.add_status_effect(stun)
+
 class Fireball(Skill):
     def __init__(self):
         super().__init__("Fireball", "Launches an explosive fireball dealing 250 (+30% INT) fire damage in a radius 2 area")
@@ -111,102 +168,54 @@ class Fireball(Skill):
             big_fireball = PassiveSkill.BIG_FIREBALL in caster.passive_skills
             radius = self.aoe_radius + 1 if big_fireball else self.aoe_radius
             
-            projectile = EnhancedFireballProjectile(caster, target.x, target.y, speed=8.0)
-            projectile.damage = self.damage * (1 + caster.intelligence / 100)
-            projectile.explosion_radius = radius
-            projectile.caster = caster
+            # Create a standard projectile with location targeting
+            from projectile import Projectile
+            projectile = Projectile(caster, None, speed=8.0)
+            projectile.set_target_location(target.x, target.y)
+            
+            # Calculate damage
+            damage = self.damage * (1 + caster.intelligence / 100)
+            
+            # Create explosion callback that handles all fireball effects
+            def fireball_explosion(proj, x, y):
+                """Handle fireball explosion at location"""
+                if not caster.board:
+                    return
+                    
+                # Get all units in explosion radius
+                units_in_area = []
+                for unit in caster.board.get_all_units():
+                    distance = caster.board.get_distance_to_point(unit, x, y)
+                    if distance <= radius:
+                        units_in_area.append(unit)
+                
+                enemies_hit = [u for u in units_in_area if u.team != caster.team and u.is_alive()]
+                allies_in_area = [u for u in units_in_area if u.team == caster.team and u.is_alive()]
+                
+                # Deal damage to enemies
+                total_damage_dealt = 0
+                for enemy in enemies_hit:
+                    damage_dealt = enemy.take_damage(damage, "fire", caster)
+                    total_damage_dealt += damage_dealt
+                    
+                # Apply passive effects
+                apply_fireball_passive_effects(caster, enemies_hit, allies_in_area, total_damage_dealt, x, y, radius, damage)
+                
+                # Add visual effects
+                from visual_effect import VisualEffectType
+                center_x, center_y = int(x), int(y)
+                for dx in range(-radius, radius + 1):
+                    for dy in range(-radius, radius + 1):
+                        tile_x, tile_y = center_x + dx, center_y + dy
+                        dist = math.sqrt(dx * dx + dy * dy)
+                        if dist <= radius and caster.board.is_valid_position(tile_x, tile_y):
+                            caster.board.add_visual_effect(VisualEffectType.FIRE, tile_x, tile_y)
+            
+            projectile.on_hit_callback = fireball_explosion
             caster.board.add_projectile(projectile)
 
 
-class EnhancedFireballProjectile(Projectile):
-    """Enhanced fireball projectile that supports pyromancer passive abilities"""
-    def __init__(self, source, target_x: float, target_y: float, speed: float = 10.0):
-        super().__init__(source, None, speed)
-        self.set_target_location(target_x, target_y)
-        self.damage_type = "fire"
-        self.caster = source
-        
-    def explode(self):
-        """Override explode to implement enhanced fireball effects"""
-        if self.exploded:
-            return
-            
-        self.exploded = True
-        self.reached_target = True
-        
-        if not self.caster or not self.caster.board:
-            return
-            
-        # Get all units in explosion radius
-        units_in_area = []
-        for unit in self.caster.board.get_all_units():
-            distance = self.caster.board.get_distance_to_point(unit, self.target_x, self.target_y)
-            if distance <= self.explosion_radius:
-                units_in_area.append(unit)
-        
-        enemies_hit = [u for u in units_in_area if u.team != self.caster.team and u.is_alive()]
-        allies_in_area = [u for u in units_in_area if u.team == self.caster.team and u.is_alive()]
-        
-        # Deal damage to enemies
-        total_damage_dealt = 0
-        for enemy in enemies_hit:
-            damage_dealt = enemy.take_damage(self.damage, self.damage_type, self.caster)
-            total_damage_dealt += damage_dealt
-            
-        # Check for passive upgrades and apply effects
-        self.apply_passive_effects(enemies_hit, allies_in_area, total_damage_dealt)
-            
-    def apply_passive_effects(self, enemies_hit, allies_in_area, total_damage_dealt):
-        """Apply effects from pyromancer passive skills"""
-        if not self.caster:
-            return
-            
-        # Firestorm: Create damage zone
-        if PassiveSkill.FIRESTORM in self.caster.passive_skills:
-            firestorm_damage = self.damage * 0.5  # 50% of initial damage
-            firestorm = FirestormCloud(self.target_x, self.target_y, self.explosion_radius, 
-                                     firestorm_damage, self.caster)
-            self.caster.board.add_cloud_effect(firestorm)
-            
-        # Shrapnel: Shoot projectiles at 4 nearest enemies
-        if PassiveSkill.SHRAPNEL in self.caster.passive_skills:
-            self.create_shrapnel_projectiles()
-            
-        # Flame Bath: Heal allies
-        if PassiveSkill.FLAME_BATH in self.caster.passive_skills and total_damage_dealt > 0:
-            heal_amount = total_damage_dealt * 0.5 / len(allies_in_area) if allies_in_area else 0
-            for ally in allies_in_area:
-                ally.heal(heal_amount, self.caster)
-                
-        # Flameshock: Stun enemies
-        if PassiveSkill.FLAMESHOCK in self.caster.passive_skills:
-            for enemy in enemies_hit:
-                stun = StunEffect(1.5)
-                stun.source = self.caster
-                enemy.add_status_effect(stun)
-    
-    def create_shrapnel_projectiles(self):
-        """Create shrapnel projectiles targeting nearest enemies"""
-        if not self.caster.board:
-            return
-            
-        # Find all enemies
-        enemies = self.caster.board.get_enemy_units(self.caster.team)
-        if not enemies:
-            return
-            
-        # Sort by distance to explosion point
-        enemies.sort(key=lambda e: self.caster.board.get_distance_to_point(e, self.target_x, self.target_y))
-        
-        # Create projectiles for up to 4 nearest enemies
-        for enemy in enemies[:4]:
-            if enemy.is_alive():
-                shrapnel = Projectile(type('DummySource', (), {
-                    'x': self.target_x, 'y': self.target_y, 'team': self.caster.team
-                })(), enemy, speed=12)
-                shrapnel_damage = self.damage * 0.3  # 30% of fireball damage as physical
-                shrapnel.on_hit_callback = lambda target, dmg=shrapnel_damage: target.take_damage(dmg, "physical", self.caster)
-                self.caster.board.add_projectile(shrapnel)
+# Removed EnhancedFireballProjectile class - now using callback-based approach
 
 
 class Firestorm(Skill):

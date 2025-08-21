@@ -21,7 +21,7 @@ class Projectile:
         self.start_x = float(source.x)
         self.start_y = float(source.y)
         
-        # Target location for AoE projectiles (when target is None or when using location targeting)
+        # Target location for location-targeted projectiles
         self.target_x = None
         self.target_y = None
         
@@ -37,20 +37,15 @@ class Projectile:
         self.damage_type = "physical"
         self.effects = []
         
-        # AoE properties
-        self.is_aoe = False
-        self.explosion_radius = 2
-        self.exploded = False
-        
         # Homing properties
         self.is_homing = False
         self.turn_rate = 5.0
         
     def set_target_location(self, x: float, y: float):
-        """Set a target location for AoE projectiles"""
+        """Set a target location for location-targeted projectiles"""
         self.target_x = x
         self.target_y = y
-        self.is_aoe = True
+        self.target = None  # Clear unit target when using location targeting
         
     def set_on_hit(self, callback: Callable):
         self.on_hit_callback = callback
@@ -75,12 +70,12 @@ class Projectile:
                     return
         
         # Determine destination based on projectile type
-        if self.is_aoe and self.target_x is not None and self.target_y is not None:
-            # AoE projectile targets a location
+        if self.target_x is not None and self.target_y is not None:
+            # Location-targeted projectile
             dest_x = self.target_x
             dest_y = self.target_y
         elif self.target and self.target.is_alive():
-            # Regular projectile targets a unit
+            # Unit-targeted projectile
             dest_x = float(self.target.x)
             dest_y = float(self.target.y)
         else:
@@ -93,13 +88,14 @@ class Projectile:
         distance = math.sqrt(dx * dx + dy * dy)
         
         if distance < 0.3:
-            if self.is_aoe:
-                self.explode()
-            elif self.target:
+            if self.target:
+                # Unit-targeted projectile
                 self.on_land(self.target)
                 if not self.piercing:
                     self.reached_target = True
             else:
+                # Location-targeted projectile - pass location to callback
+                self.on_land_at_location(dest_x, dest_y)
                 self.reached_target = True
             return
             
@@ -133,36 +129,10 @@ class Projectile:
                                         source=self.source, 
                                         target=target)
     
-    def explode(self):
-        """Called when an AoE projectile reaches its destination"""
-        if self.exploded:
-            return
-            
-        self.exploded = True
-        self.reached_target = True
-        
-        if not self.source or not self.source.board:
-            return
-            
-        units = self.source.board.get_units_in_range(int(self.x), int(self.y), self.explosion_radius)
-        
-        for unit in units:
-            if unit.team != self.source.team:
-                self.on_land(unit)
-        
-        # Add fire visual effects to all tiles in explosion radius
-        center_x, center_y = int(self.x), int(self.y)
-        for dx in range(-self.explosion_radius, self.explosion_radius + 1):
-            for dy in range(-self.explosion_radius, self.explosion_radius + 1):
-                tile_x, tile_y = center_x + dx, center_y + dy
-                # Check if tile is within circular explosion radius
-                distance = math.sqrt(dx * dx + dy * dy)
-                if distance <= self.explosion_radius and self.source.board.is_valid_position(tile_x, tile_y):
-                    self.source.board.add_visual_effect(VisualEffectType.FIRE, tile_x, tile_y)
-                
-        self.source.board.raise_event("aoe_explosion", 
-                                    projectile=self, 
-                                    source=self.source, 
-                                    x=self.x, 
-                                    y=self.y)
+    def on_land_at_location(self, x: float, y: float):
+        """Called when a location-targeted projectile reaches its destination"""
+        if self.on_hit_callback:
+            # Pass projectile, x, y to callback for location-based effects
+            self.on_hit_callback(self, x, y)
+        # No default behavior for location-targeted projectiles without callbacks
 
