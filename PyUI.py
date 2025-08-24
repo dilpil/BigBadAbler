@@ -314,19 +314,36 @@ class PyUI:
                                 # Clear selection after successful equip
                                 self.selected_item = None
                                 self.selected_item_index = None
-                else:
-                    # Open passive skill shop on left click
-                    self.selected_unit = unit
+                elif self.selected_unit == unit:
+                    # Clicking the same unit again opens upgrade shop
                     self.shop_open = ShopType.UPGRADE
+                else:
+                    # Select the unit for movement
+                    self.selected_unit = unit
             elif not unit and grid_x < 5 and self.game.phase == GamePhase.SHOPPING:
                 if self.selected_item:
                     # Cancel item selection on empty tile click
                     self.selected_item = None
                     self.selected_item_index = None
+                elif self.selected_unit:
+                    # Move selected unit to this position (only if tile is empty)
+                    existing_unit = self.game.board.get_unit_at(grid_x, grid_y)
+                    if not existing_unit:
+                        if self.game.board.move_unit(self.selected_unit, grid_x, grid_y):
+                            self.game.add_message(f"Moved {self.selected_unit.name} to ({grid_x}, {grid_y})")
+                            # Deselect unit after successful move
+                            self.selected_unit = None
                 else:
                     # Open unit shop
                     self.shop_open = ShopType.UNIT
                     self.shop_position = (grid_x, grid_y)
+        else:
+            # Clicked outside the board - clear selections if in shopping phase
+            if self.game.phase == GamePhase.SHOPPING:
+                self.selected_unit = None
+                if self.selected_item:
+                    self.selected_item = None
+                    self.selected_item_index = None
                 
     def handle_right_click(self, pos):
         # Check if clicking on item in upgrade shop to unequip
@@ -338,6 +355,21 @@ class PyUI:
                         self.selected_unit.items.remove(item)
                         self.game.player_team.unequipped_items.append(item)
                         return
+        
+        # Check if right-clicking on owned augments panel (for unequipping items)
+        if self.game.phase == GamePhase.SHOPPING:
+            if self.game.player_team.augments:
+                from augment import ItemAugment
+                for augment in self.game.player_team.augments:
+                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
+                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
+                            # Find unit that has this item and unequip it
+                            for unit in self.game.board.player_units:
+                                if augment.item in unit.items:
+                                    unit.items.remove(augment.item)
+                                    self.game.player_team.unequipped_items.append(augment.item)
+                                    self.game.add_message(f"Unequipped {augment.item.name} from {unit.name}")
+                                    return
         
         # Cancel item selection on right click
         if self.selected_item:
@@ -536,9 +568,27 @@ class PyUI:
         for i, augment in enumerate(self.game.augment_shop):
             aug_x = start_x + i * (augment_width + augment_spacing)
             if aug_x <= pos[0] <= aug_x + augment_width:
-                # Purchase augment if we can afford it
+                from augment import ItemAugment, UnitAugment
+                
                 if self.game.gold >= augment.cost:
-                    self.game.purchase_augment(i)
+                    # Try to purchase the augment
+                    if self.game.purchase_augment(i):
+                        # Check augment type and select appropriately
+                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
+                            # Item augment - select the item for equipping
+                            if augment.item in self.game.player_team.unequipped_items:
+                                self.selected_item = augment.item
+                                self.selected_item_index = None
+                                self.game.add_message(f"Selected {augment.item.name} - click a unit to equip")
+                        elif isinstance(augment, UnitAugment):
+                            # Unit augment - select the unit after it's been placed
+                            # The unit is automatically placed by the augment's on_buy method
+                            # Find the most recently added unit on the board
+                            if self.game.board.player_units:
+                                # The most recently added unit should be the one from this augment
+                                newest_unit = self.game.board.player_units[-1]
+                                self.selected_unit = newest_unit
+                                self.game.add_message(f"Selected {newest_unit.name} - click to move or click again for upgrades")
                 break
             
     def get_shop_hover_unit(self, pos):
@@ -742,6 +792,7 @@ class PyUI:
         self.draw_text_floaters()
         self.draw_ui()
         self.draw_owned_augments()
+        self.draw_item_connection_lines()
         self.draw_enemy_augments()
         self.effect_manager.draw(self.screen, self.fonts['small'])
         
@@ -934,6 +985,12 @@ class PyUI:
         border_color = self.colors['player_border'] if unit.team == "player" else self.colors['enemy_border']
         pygame.draw.rect(self.screen, border_color,
                         (x + offset_x + 2, y + offset_y + 2, self.tile_size - 4, self.tile_size - 4), 3)
+        
+        # Draw selection highlight if this unit is selected
+        if self.selected_unit == unit and self.game.phase == GamePhase.SHOPPING:
+            selection_color = (255, 255, 0)  # Yellow highlight
+            pygame.draw.rect(self.screen, selection_color,
+                            (x + offset_x, y + offset_y, self.tile_size, self.tile_size), 4)
         
         # Draw unit letter with unit color
         letter = unit.unit_type.value[0].upper()
@@ -1346,6 +1403,46 @@ class PyUI:
             # Center the name vertically in the augment rect
             name_y = augment_rect.y + (augment_rect.height - name_text.get_height()) // 2
             self.screen.blit(name_text, (icon_x + icon_size + 10, name_y))
+    
+    def draw_item_connection_lines(self):
+        """Draw thin lines from ItemAugments to the units they are equipped on"""
+        if self.game.phase != GamePhase.SHOPPING:
+            return
+            
+        from augment import ItemAugment
+        
+        # Only draw lines for ItemAugments that have their items equipped
+        for i, augment in enumerate(self.game.player_team.augments):
+            if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
+                # Find which unit has this item equipped
+                equipped_unit = None
+                for unit in self.game.board.player_units:
+                    if augment.item in unit.items:
+                        equipped_unit = unit
+                        break
+                
+                if equipped_unit:
+                    # Calculate augment position (matching draw_owned_augments logic exactly)
+                    panel_x = 20
+                    panel_y = 100
+                    augment_rect_width = 180  # panel_width - 20 = 200 - 20
+                    augment_rect_height = 50
+                    augment_rect_x = panel_x + 10  # 30
+                    augment_rect_y = panel_y + 40 + i * 55  # 140 + i * 55
+                    
+                    # Start line from bottom-right corner of augment rect
+                    line_start_x = augment_rect_x + augment_rect_width  # 30 + 180 = 210
+                    line_start_y = augment_rect_y + augment_rect_height  # Y + 50
+                    
+                    # End line at center of unit
+                    unit_center_x = self.board_x + equipped_unit.x * self.tile_size + self.tile_size // 2
+                    unit_center_y = self.board_y + equipped_unit.y * self.tile_size + self.tile_size // 2
+                    
+                    # Draw thin line
+                    line_color = (100, 150, 200)  # Light blue
+                    pygame.draw.line(self.screen, line_color, 
+                                   (line_start_x, line_start_y), 
+                                   (unit_center_x, unit_center_y), 2)
                 
     def draw_enemy_augments(self):
         """Draw enemy augments stacked vertically on the right side"""
