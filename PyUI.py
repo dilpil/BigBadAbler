@@ -458,6 +458,13 @@ class PyUI:
                         self.tooltip = augment.get_tooltip()
                         return
             
+            # Check enemy augments tooltip (right side panel)
+            if self.game.enemy_team.augments:
+                for augment in self.game.enemy_team.augments:
+                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
+                        self.tooltip = augment.get_tooltip()
+                        return
+            
             # Check augment shop tooltip
             if self.game.phase == GamePhase.SHOPPING and pos[1] > self.height - 150:
                 # Calculate centered position
@@ -1472,6 +1479,9 @@ class PyUI:
         for i, augment in enumerate(self.game.enemy_team.augments):
             augment_y = panel_y + 40 + i * 55
             augment_rect = pygame.Rect(panel_x + 10, augment_y, panel_width - 20, 50)
+            
+            # Store rect for tooltip and click detection
+            augment.ui_rect = augment_rect
             
             # Augment background
             bg_color = self.colors['button']
