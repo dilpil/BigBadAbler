@@ -7,6 +7,7 @@ from content.units.necromancer import create_necromancer, Necromancer
 from content.units.paladin import create_paladin, Paladin
 from content.units.pyromancer import create_pyromancer, Pyromancer
 from content.units.berserker import create_berserker, Berserker
+from content.units.cleric import create_cleric, Cleric
 
 from unit import Unit, UnitType
 
@@ -16,7 +17,8 @@ def create_unit(unit_type: UnitType) -> Unit:
         UnitType.NECROMANCER: create_necromancer,
         UnitType.PALADIN: create_paladin,
         UnitType.PYROMANCER: create_pyromancer,
-        UnitType.BERSERKER: create_berserker
+        UnitType.BERSERKER: create_berserker,
+        UnitType.CLERIC: create_cleric
     }
     
     factory = unit_factories.get(unit_type)
@@ -26,7 +28,7 @@ def create_unit(unit_type: UnitType) -> Unit:
 
 def get_available_units():
     """Get list of all available unit types"""
-    return [UnitType.NECROMANCER, UnitType.PALADIN, UnitType.PYROMANCER, UnitType.BERSERKER]
+    return [UnitType.NECROMANCER, UnitType.PALADIN, UnitType.PYROMANCER, UnitType.BERSERKER, UnitType.CLERIC]
 
 def get_unit_cost(unit_type: UnitType) -> int:
     """Get the cost of a specific unit type"""
@@ -34,7 +36,8 @@ def get_unit_cost(unit_type: UnitType) -> int:
         UnitType.NECROMANCER: Necromancer,
         UnitType.PALADIN: Paladin,
         UnitType.PYROMANCER: Pyromancer,
-        UnitType.BERSERKER: Berserker
+        UnitType.BERSERKER: Berserker,
+        UnitType.CLERIC: Cleric
     }
     
     unit_class = unit_classes.get(unit_type)

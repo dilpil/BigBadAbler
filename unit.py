@@ -13,6 +13,7 @@ class UnitType(Enum):
     PALADIN = "paladin"
     PYROMANCER = "pyromancer"
     BERSERKER = "berserker"
+    CLERIC = "cleric"
     SKELETON = "skeleton"
 
 class PassiveSkill(Enum):
@@ -49,6 +50,15 @@ class PassiveSkill(Enum):
     FLAMESHOCK = "flameshock"
     FLAMEBOLTS = "flamebolts"
     FLAMEPROOF_AURA = "flameproof_aura"
+    
+    # Cleric passives
+    ARMOR_BLESSING = "armor_blessing"
+    DOUBLE_HEAL = "double_heal"
+    EMPOWERED_HEAL = "empowered_heal"
+    HOLY_SMITE = "holy_smite"
+    BATTLE_HEAL = "battle_heal"
+    MASS_HEAL = "mass_heal"
+    CLEANSE = "cleanse"
 
 class Unit:
     _next_id = 0
