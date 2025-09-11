@@ -111,6 +111,14 @@ class PyUI:
         
         self.shop_open = ShopType.NONE
         self.tooltip = None
+        
+        # Dynamic tooltip tracking
+        self.tooltip_unit = None
+        self.tooltip_item = None
+        self.tooltip_augment = None
+        self.tooltip_skill = None
+        self.tooltip_type = None
+        
         self.shop_hover_unit = None
         self.shop_hover_ability = None
         self.shop_flash_timer = 0
@@ -353,22 +361,22 @@ class PyUI:
                 else:
                     # Select the unit for movement
                     self.selected_unit = unit
-            elif not unit and grid_x < 5 and self.game.phase == GamePhase.SHOPPING:
+            elif not unit and grid_x < 4 and self.game.phase == GamePhase.SHOPPING:
                 if self.selected_item:
                     # Cancel item selection on empty tile click
                     self.selected_item = None
                     self.selected_item_index = None
                     self.selected_item_source_unit = None
                 elif self.selected_unit:
-                    # Move selected unit to this position (only if tile is empty)
+                    # Move selected unit to this position (only if tile is empty and on player side)
                     existing_unit = self.game.board.get_unit_at(grid_x, grid_y)
-                    if not existing_unit:
+                    if not existing_unit and self.selected_unit.team == "player":
                         if self.game.board.move_unit(self.selected_unit, grid_x, grid_y):
                             self.game.add_message(f"Moved {self.selected_unit.name} to ({grid_x}, {grid_y})")
                             # Deselect unit after successful move
                             self.selected_unit = None
                 else:
-                    # Open unit shop
+                    # Open unit shop (only on player side)
                     self.shop_open = ShopType.UNIT
                     self.shop_position = (grid_x, grid_y)
         else:
@@ -438,7 +446,19 @@ class PyUI:
             return
             
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
-        if 0 <= grid_x < 5 and 0 <= grid_y < 10:
+        if 0 <= grid_x < 8 and 0 <= grid_y < 8:
+            # Only allow player units to be positioned on their side (left side, x = 0-3)
+            if self.dragging_unit.team == "player" and grid_x >= 4:
+                # Player unit dropped on enemy side - not allowed
+                self.dragging_unit = None
+                return
+            
+            # Only allow enemy units to be positioned on their side (right side, x = 4-7)
+            if self.dragging_unit.team == "enemy" and grid_x < 4:
+                # Enemy unit dropped on player side - not allowed  
+                self.dragging_unit = None
+                return
+                
             if not self.game.board.get_unit_at(grid_x, grid_y):
                 # For player dragging, update position instantly (no animation)
                 unit_id = self.dragging_unit.id
@@ -457,27 +477,35 @@ class PyUI:
         self.shop_hover_unit = None
         self.shop_hover_ability = None
         
+        # Clear all tooltip references
+        self.tooltip_unit = None
+        self.tooltip_item = None
+        self.tooltip_augment = None
+        self.tooltip_skill = None
+        self.tooltip_type = None
+        self.tooltip = None
+        
         # Check if we're in a shop
         if self.shop_open == ShopType.UNIT:
             hover_unit = self.get_shop_hover_unit(pos)
             if hover_unit:
                 self.shop_hover_unit = hover_unit
-                # Create tooltip for hovered unit
+                # Store reference for dynamic tooltip generation
                 unit_instance = create_unit(hover_unit)
-                self.tooltip = self.create_shop_unit_tooltip(unit_instance)
+                self.tooltip_unit = unit_instance
+                self.tooltip_type = "shop_unit"
                 return
             else:
-                self.tooltip = None
                 return
         elif self.shop_open == ShopType.UPGRADE:
             hover_ability = self.get_shop_hover_ability(pos)
             if hover_ability:
                 self.shop_hover_ability = hover_ability
-                # Create tooltip for hovered ability
-                self.tooltip = self.create_ability_tooltip(hover_ability)
+                # Store reference for dynamic tooltip generation
+                self.tooltip_skill = hover_ability
+                self.tooltip_type = "ability"
                 return
             else:
-                self.tooltip = None
                 return
                 
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
@@ -487,9 +515,11 @@ class PyUI:
             
             unit = self.game.board.get_unit_at(grid_x, grid_y)
             if unit:
-                self.tooltip = self.create_unit_tooltip(unit)
+                # Store unit reference for dynamic tooltip generation
+                self.tooltip_unit = unit
+                self.tooltip_type = "unit"
             else:
-                self.tooltip = None
+                pass  # No tooltip
         else:
             # Clear hovered tile when mouse leaves board
             self.hovered_tile = None
@@ -498,14 +528,16 @@ class PyUI:
             if self.game.player_team.augments:
                 for augment in self.game.player_team.augments:
                     if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
-                        self.tooltip = augment.get_tooltip()
+                        self.tooltip_augment = augment
+                        self.tooltip_type = "augment"
                         return
             
             # Check enemy augments tooltip (right side panel)
             if self.game.enemy_team.augments:
                 for augment in self.game.enemy_team.augments:
                     if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
-                        self.tooltip = augment.get_tooltip()
+                        self.tooltip_augment = augment
+                        self.tooltip_type = "augment"
                         return
             
             # Check augment shop tooltip
@@ -520,12 +552,9 @@ class PyUI:
                 for i, augment in enumerate(self.game.augment_shop):
                     aug_x = start_x + i * (augment_width + augment_spacing)
                     if aug_x <= pos[0] <= aug_x + augment_width:
-                        self.tooltip = augment.get_tooltip()
+                        self.tooltip_augment = augment
+                        self.tooltip_type = "augment"
                         return
-                else:
-                    self.tooltip = None
-            else:
-                self.tooltip = None
                 
     def handle_shop_click(self, pos):
         if self.shop_open == ShopType.UNIT:
@@ -951,8 +980,8 @@ class PyUI:
             
         grid_x, grid_y = self.hovered_tile
         
-        # Only show plus sign on player side (left 5 columns) for empty tiles
-        if grid_x < 5 and not self.game.board.get_unit_at(grid_x, grid_y):
+        # Only show plus sign on player side (left 4 columns) for empty tiles
+        if grid_x < 4 and not self.game.board.get_unit_at(grid_x, grid_y):
             # Calculate screen position
             x = self.board_x + grid_x * self.tile_size
             y = self.board_y + grid_y * self.tile_size
@@ -1880,10 +1909,27 @@ class PyUI:
         return lines
     
     def draw_tooltip(self):
-        if not self.tooltip:
+        # Generate fresh tooltip content based on tooltip type
+        tooltip_content = None
+        
+        if self.tooltip_type == "unit" and self.tooltip_unit:
+            tooltip_content = self.create_unit_tooltip(self.tooltip_unit)
+        elif self.tooltip_type == "shop_unit" and self.tooltip_unit:
+            tooltip_content = self.create_shop_unit_tooltip(self.tooltip_unit)
+        elif self.tooltip_type == "ability" and self.tooltip_skill:
+            tooltip_content = self.create_ability_tooltip(self.tooltip_skill)
+        elif self.tooltip_type == "augment" and self.tooltip_augment:
+            tooltip_content = self.tooltip_augment.get_tooltip()
+        elif self.tooltip_type == "item" and self.tooltip_item:
+            tooltip_content = self.create_item_tooltip(self.tooltip_item)
+        elif self.tooltip:
+            # Fallback to old static tooltip system
+            tooltip_content = self.tooltip
+        
+        if not tooltip_content:
             return
             
-        raw_lines = self.tooltip.split('\n')
+        raw_lines = tooltip_content.split('\n')
         max_tooltip_width = 350  # Maximum width for tooltips
         
         # Process lines and handle text wrapping
