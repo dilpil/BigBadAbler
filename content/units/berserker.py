@@ -10,7 +10,7 @@ import math
 class Berserker(Unit):
     def __init__(self):
         super().__init__("Berserker", UnitType.BERSERKER)
-        self.max_hp = 750
+        self.max_hp = 1000
         self.hp = self.max_hp
         self.max_mp = 70
         self.mp = 0
@@ -72,7 +72,7 @@ class FrenzyEffect(StatusEffect):
     def __init__(self, duration: float = -1):  # -1 means until end of combat
         super().__init__("Frenzy", duration)
         self.attack_speed_bonus = 10
-        self.lifesteal_percent = 5
+        self.lifesteal_percent = 10
         self.armor_bonus = 0
         self.magic_resist_bonus = 0
         
@@ -125,7 +125,7 @@ class Frenzy(Skill):
             effect.attack_speed_bonus = 15  # Upgrade from 10 to 15
             
         if hungry_frenzy:
-            effect.lifesteal_percent = 10  # Upgrade from 5 to 10
+            effect.lifesteal_percent = 20  # Upgrade from 10 to 20
             
         if immortal_frenzy:
             effect.armor_bonus = 10
@@ -157,9 +157,9 @@ class FastFrenzy(Skill):
 
 
 class HungryFrenzy(Skill):
-    """Passive: Increases Frenzy lifesteal from 5% to 10%"""
+    """Passive: Increases Frenzy lifesteal from 10% to 20%"""
     def __init__(self):
-        super().__init__("Hungry Frenzy", "Frenzy lifesteal increased from 5% to 10%")
+        super().__init__("Hungry Frenzy", "Frenzy lifesteal increased from 10% to 20%")
         self.is_passive = True
         self.skill_enum = PassiveSkill.HUNGRY_FRENZY
 
