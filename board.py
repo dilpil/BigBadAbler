@@ -29,8 +29,10 @@ class Board:
             self.units[(x, y)] = unit
             
             if team == "player":
+                assert(unit not in self.player_units)
                 self.player_units.append(unit)
             else:
+                assert(unit not in self.enemy_units)
                 self.enemy_units.append(unit)
             
             self.raise_event("unit_added", unit=unit)

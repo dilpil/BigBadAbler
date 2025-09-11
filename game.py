@@ -262,7 +262,7 @@ class Game:
             # Ensure we don't exceed board boundaries
             if y >= 8:
                 y = 7
-            self.board.add_unit(unit, x, y, "enemy")
+            
             unit.original_x = x
             unit.original_y = y
     
