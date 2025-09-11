@@ -115,8 +115,13 @@ class PyUI:
         self.shop_flash_duration = 0.3
         self.selected_item = None
         self.selected_item_index = None
+        self.selected_item_source_unit = None  # Track which unit an item is being moved from
         self.hovered_tile = None  # (x, y) of tile being hovered over
         self.effect_manager = EffectManager()
+        
+        # Flash effect for invalid augment clicks
+        self.augment_panel_flash_timer = 0
+        self.augment_panel_flash_duration = 0.3  # Flash for 0.3 seconds
         
         # UI-only smooth movement tracking
         self.unit_visual_positions = {}  # unit_id -> (visual_x, visual_y, target_x, target_y, progress, duration)
@@ -266,6 +271,7 @@ class PyUI:
                 if self.selected_item:
                     self.selected_item = None
                     self.selected_item_index = None
+                    self.selected_item_source_unit = None
                 elif self.shop_open != ShopType.NONE:
                     self.shop_open = ShopType.NONE
                                     
@@ -279,12 +285,25 @@ class PyUI:
                 for augment in self.game.player_team.augments:
                     if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
                         if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
-                            # Check if item is unequipped
-                            if augment.item in self.game.player_team.unequipped_items:
-                                # Select this item for equipping
-                                self.selected_item = augment.item
-                                self.selected_item_index = None  # Not from shop
-                                return
+                            # Select the item for equipping/moving (whether equipped or not)
+                            self.selected_item = augment.item
+                            self.selected_item_index = None  # Not from shop
+                            
+                            # Check if item needs to be unequipped from a unit first
+                            for unit in self.game.board.player_units:
+                                if augment.item in unit.items:
+                                    self.selected_item_source_unit = unit
+                                    self.game.add_message(f"Selected {augment.item.name} from {unit.name} - click a unit to move")
+                                    return
+                            
+                            # Item is unequipped
+                            self.selected_item_source_unit = None
+                            self.game.add_message(f"Selected {augment.item.name} - click a unit to equip")
+                            return
+                        else:
+                            # Not an item augment - can't select it, flash the panel
+                            self.augment_panel_flash_timer = self.augment_panel_flash_duration
+                            return
         
         if self.shop_open != ShopType.NONE:
             if not self.is_click_in_shop(pos):
@@ -306,14 +325,26 @@ class PyUI:
                 # If we have a selected item, try to equip it to this unit
                 if self.selected_item:
                     if len(unit.items) < 3:
-                        # Check if it's an unequipped item (not from shop)
-                        if self.selected_item in self.game.player_team.unequipped_items:
+                        # Check if item is being moved from another unit
+                        if self.selected_item_source_unit:
+                            # Remove from source unit first
+                            if self.selected_item in self.selected_item_source_unit.items:
+                                self.selected_item_source_unit.items.remove(self.selected_item)
+                                if unit.add_item(self.selected_item):
+                                    self.game.add_message(f"Moved {self.selected_item.name} from {self.selected_item_source_unit.name} to {unit.name}")
+                                else:
+                                    # Failed to add, restore to source
+                                    self.selected_item_source_unit.items.append(self.selected_item)
+                        # Check if it's an unequipped item
+                        elif self.selected_item in self.game.player_team.unequipped_items:
                             if unit.add_item(self.selected_item):
                                 self.game.player_team.unequipped_items.remove(self.selected_item)
                                 self.game.add_message(f"Equipped {self.selected_item.name} to {unit.name}")
-                                # Clear selection after successful equip
-                                self.selected_item = None
-                                self.selected_item_index = None
+                        
+                        # Clear selection after successful equip
+                        self.selected_item = None
+                        self.selected_item_index = None
+                        self.selected_item_source_unit = None
                 elif self.selected_unit == unit:
                     # Clicking the same unit again opens upgrade shop
                     self.shop_open = ShopType.UPGRADE
@@ -325,6 +356,7 @@ class PyUI:
                     # Cancel item selection on empty tile click
                     self.selected_item = None
                     self.selected_item_index = None
+                    self.selected_item_source_unit = None
                 elif self.selected_unit:
                     # Move selected unit to this position (only if tile is empty)
                     existing_unit = self.game.board.get_unit_at(grid_x, grid_y)
@@ -344,6 +376,7 @@ class PyUI:
                 if self.selected_item:
                     self.selected_item = None
                     self.selected_item_index = None
+                    self.selected_item_source_unit = None
                 
     def handle_right_click(self, pos):
         # Check if clicking on item in upgrade shop to unequip
@@ -375,6 +408,14 @@ class PyUI:
         if self.selected_item:
             self.selected_item = None
             self.selected_item_index = None
+            self.selected_item_source_unit = None
+        
+        # Deselect unit on right click
+        if self.selected_unit:
+            self.selected_unit = None
+            # Also close the upgrade shop if it's open
+            if self.shop_open == ShopType.UPGRADE:
+                self.shop_open = ShopType.NONE
             return
         
         # Close shop if it's open
@@ -553,6 +594,7 @@ class PyUI:
                     success = self.game.purchase_passive_skill(self.selected_unit, skill_name)
                     if success:
                         self.shop_open = ShopType.NONE  # Only close shop on successful purchase
+                        self.selected_unit = None  # Deselect unit after purchase
                 # Do nothing if insufficient gold - shop stays open
                 return
                 
@@ -596,6 +638,9 @@ class PyUI:
                                 newest_unit = self.game.board.player_units[-1]
                                 self.selected_unit = newest_unit
                                 self.game.add_message(f"Selected {newest_unit.name} - click to move or click again for upgrades")
+                else:
+                    # Not enough gold - trigger flash effect
+                    self.augment_panel_flash_timer = self.augment_panel_flash_duration
                 break
             
     def get_shop_hover_unit(self, pos):
@@ -692,6 +737,10 @@ class PyUI:
         # Update shop flash timer
         if self.shop_flash_timer > 0:
             self.shop_flash_timer -= dt
+        
+        # Update augment panel flash timer
+        if self.augment_panel_flash_timer > 0:
+            self.augment_panel_flash_timer -= dt
             
         # Track unit position changes for smooth movement
         if self.game.phase in [GamePhase.COMBAT, GamePhase.POST_COMBAT]:
@@ -1214,9 +1263,21 @@ class PyUI:
             
             # Item shop panel
             shop_y = self.height - 160
-            pygame.draw.rect(self.screen, self.colors['panel_bg'], 
+            
+            # Apply flash effect if timer is active
+            if self.augment_panel_flash_timer > 0:
+                # Calculate flash intensity (fade out over time)
+                flash_intensity = self.augment_panel_flash_timer / self.augment_panel_flash_duration
+                # Blend between normal panel color and red based on intensity
+                panel_color = self._blend_colors(self.colors['panel_bg'], self.colors['panel_flash_red'], flash_intensity)
+                border_color = self._blend_colors(self.colors['panel_border'], (255, 100, 100), flash_intensity)
+            else:
+                panel_color = self.colors['panel_bg']
+                border_color = self.colors['panel_border']
+            
+            pygame.draw.rect(self.screen, panel_color, 
                            (0, shop_y, self.width, 160))
-            pygame.draw.line(self.screen, self.colors['panel_border'], 
+            pygame.draw.line(self.screen, border_color, 
                            (0, shop_y), (self.width, shop_y), 3)
             
             text = self.fonts['medium'].render("AUGMENT SHOP", True, self.colors['text'])
@@ -1331,10 +1392,20 @@ class PyUI:
         panel_x = 20
         panel_y = 100  # Start below top UI panel
         
-        # Draw background panel
-        pygame.draw.rect(self.screen, self.colors['panel_bg'], 
+        # Draw background panel with flash effect if timer is active
+        if self.augment_panel_flash_timer > 0:
+            # Calculate flash intensity (fade out over time)
+            flash_intensity = self.augment_panel_flash_timer / self.augment_panel_flash_duration
+            # Blend between normal panel color and red based on intensity
+            panel_color = self._blend_colors(self.colors['panel_bg'], self.colors['panel_flash_red'], flash_intensity)
+            border_color = self._blend_colors(self.colors['panel_border'], (255, 100, 100), flash_intensity)
+        else:
+            panel_color = self.colors['panel_bg']
+            border_color = self.colors['panel_border']
+            
+        pygame.draw.rect(self.screen, panel_color, 
                         (panel_x, panel_y, panel_width, panel_height))
-        pygame.draw.rect(self.screen, self.colors['panel_border'], 
+        pygame.draw.rect(self.screen, border_color, 
                         (panel_x, panel_y, panel_width, panel_height), 2)
         
         # Title
