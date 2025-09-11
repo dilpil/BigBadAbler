@@ -14,6 +14,7 @@ class UnitType(Enum):
     PYROMANCER = "pyromancer"
     BERSERKER = "berserker"
     CLERIC = "cleric"
+    ASSASSIN = "assassin"
     SKELETON = "skeleton"
 
 class PassiveSkill(Enum):
@@ -59,6 +60,15 @@ class PassiveSkill(Enum):
     BATTLE_HEAL = "battle_heal"
     MASS_HEAL = "mass_heal"
     CLEANSE = "cleanse"
+    
+    # Assassin passives
+    EVASION = "evasion"
+    KNIFE_TOSS = "knife_toss"
+    TURBO = "turbo"
+    POISON = "poison"
+    AETHER_SWAP = "aether_swap"
+    SOUL_REAPING = "soul_reaping"
+    CRIT = "crit"
 
 class Unit:
     _next_id = 0
@@ -241,6 +251,12 @@ class Unit:
         old_hp = self.hp
         self.hp = min(self.hp + amount, self.max_hp)
         actual_heal = self.hp - old_hp
+        
+        # Visual effect - bright green flash on heal
+        if actual_heal > 0:
+            self.flash_color = (0, 255, 0)
+            self.flash_timer = 0.3
+            self.flash_duration = 0.3
         
         self.board.raise_event("unit_healed", unit=self, amount=actual_heal, source=source)
         return actual_heal

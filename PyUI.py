@@ -72,6 +72,8 @@ class PyUI:
             'paladin': (255, 200, 0),
             'pyromancer': (255, 100, 0),
             'berserker': (200, 50, 50),
+            'cleric': (200, 200, 255),
+            'assassin': (50, 50, 50),
             'skeleton': (150, 150, 150),
             'panel_bg': (30, 10, 50),
             'panel_border': (100, 50, 150),
