@@ -886,7 +886,7 @@ class PyUI:
         if self.shop_open != ShopType.NONE:
             self.draw_shop()
             
-        if self.tooltip:
+        if self.tooltip_type or self.tooltip:
             self.draw_tooltip()
             
         if self.dragging_unit:

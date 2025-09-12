@@ -11,6 +11,10 @@ class VisualEffectType(Enum):
     POISON = "poison"
     BLOOD = "blood"
     ARCANE = "arcane"
+    TELEPORT = "teleport"
+    DODGE = "dodge"
+    PROJECTILE = "projectile"
+    SOUL = "soul"
 
 class VisualEffect:
     """A visual effect that appears on the board but has no gameplay impact."""
