@@ -22,7 +22,7 @@ class Game:
         self.round = 0
         self.player_lives = 5
         self.player_wins = 0
-        self.gold = 120
+        self.gold = 0
         
         self.phase = GamePhase.SHOPPING
         self.board = Board()

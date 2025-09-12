@@ -110,11 +110,132 @@ class Team:
                 else:
                     augment.on_round_end()
     
-    def generate_enemy_team(self, budget: int = 120, game=None):
-        """Generate an enemy team with random allocation: 50%+ units, remainder split between upgrades and augments"""
-        from content.augments import generate_augment_shop
-        from augment import ItemAugment, UnitAugment, PassiveAugment
+    def buy_random_unit(self, remaining_budget: int, game=None) -> int:
+        """Try to buy a random unit for the enemy team. Returns cost spent (0 if failed)."""
         from content.unit_registry import create_unit, get_available_units
+        import random
+        
+        # Check if we can afford a unit
+        unit_cost = self.get_unit_cost()
+        if remaining_budget < unit_cost:
+            return 0
+        
+        # Check if we have space for a unit
+        position = self.find_empty_position()
+        if not position:
+            return 0
+        
+        # Try to create and add a random unit
+        unit_types = get_available_units()
+        if not unit_types:
+            return 0
+            
+        unit_type = random.choice(unit_types)
+        unit = create_unit(unit_type)
+        
+        if unit and self.add_unit(unit, position[0], position[1]):
+            self.units_purchased += 1
+            if game:
+                game.add_message(f"Enemy bought {unit.name} for {unit_cost} gold")
+            return unit_cost
+        
+        return 0
+    
+    def buy_random_passive(self, remaining_budget: int, game=None) -> int:
+        """Try to buy a random passive skill for a random unit. Returns cost spent (0 if failed)."""
+        import random
+        
+        # Find eligible units (units with < 5 passive skills)
+        eligible_units = [unit for unit in self.units if len(unit.passive_skills) < 5]
+        if not eligible_units:
+            return 0
+        
+        # Pick a random unit
+        unit = random.choice(eligible_units)
+        skill_cost = self.get_passive_cost(unit)
+        
+        # Check if we can afford a passive
+        if remaining_budget < skill_cost:
+            return 0
+        
+        # Get available passive skills for this unit
+        if not hasattr(unit, 'get_available_passive_skills'):
+            return 0
+            
+        available_passives = unit.get_available_passive_skills()
+        if not available_passives:
+            return 0
+        
+        # Filter out skills the unit already has
+        eligible_passives = []
+        for passive_skill in available_passives:
+            skill_name = passive_skill.value if hasattr(passive_skill, 'value') else str(passive_skill)
+            has_skill = any(existing.name.lower().replace(" ", "_") == skill_name.lower().replace(" ", "_")
+                          for existing in unit.passive_skills)
+            if not has_skill:
+                eligible_passives.append(passive_skill)
+        
+        if not eligible_passives:
+            return 0
+        
+        # Buy a random passive skill
+        skill_to_buy = random.choice(eligible_passives)
+        from skill_factory import create_skill
+        skill = create_skill(skill_to_buy)
+        
+        if skill and unit.add_passive_skill(skill):
+            if game:
+                game.add_message(f"Enemy bought {skill.name} for {unit.name} for {skill_cost} gold")
+            return skill_cost
+        
+        return 0
+    
+    def buy_random_augment(self, remaining_budget: int, game=None) -> int:
+        """Try to buy a random augment from the pool. Returns cost spent (0 if failed)."""
+        import random
+        
+        # Check if we have augments in the pool
+        if not hasattr(self, 'enemy_augment_pool') or not self.enemy_augment_pool:
+            return 0
+        
+        # Find affordable augments we haven't bought yet
+        available_augments = [aug for aug in self.enemy_augment_pool 
+                            if aug.cost <= remaining_budget and aug not in self.augments]
+        
+        if not available_augments:
+            return 0
+        
+        # Pick a random augment
+        augment = random.choice(available_augments)
+        
+        # 70% chance to buy (for enemy balance)
+        if random.random() > 0.7:
+            return 0
+        
+        # Try to buy the augment
+        augment.team = self
+        if augment.on_buy(self):
+            self.add_augment(augment)
+            if game:
+                game.add_message(f"Enemy bought {augment.name} for {augment.cost} gold")
+            return augment.cost
+        
+        return 0
+    
+    def equip_items_randomly(self):
+        """Randomly equip unequipped items to units with available slots."""
+        import random
+        
+        for item in self.unequipped_items[:]:  # Use slice copy to avoid modification during iteration
+            available_units = [unit for unit in self.units if len(unit.items) < 3]
+            if available_units:
+                unit = random.choice(available_units)
+                if unit.add_item(item):
+                    self.unequipped_items.remove(item)
+    
+    def generate_enemy_team(self, budget: int = 120, game=None):
+        """Generate an enemy team by randomly buying units, passives, and augments until budget is exhausted."""
+        from content.augments import generate_augment_shop
         import random
         
         if self.name != "enemy":
@@ -126,119 +247,53 @@ class Team:
         # Clear enemy team completely
         self.clear()
         
-        # Randomly allocate budget percentages
-        # Units get 50-80% of budget
-        unit_percentage = random.uniform(0.5, 0.8)
-        unit_budget = int(budget * unit_percentage)
+        # Generate augment pool once for the enemy to choose from
+        self.enemy_augment_pool = generate_augment_shop(20)
+        random.shuffle(self.enemy_augment_pool)
         
-        # Split remainder between upgrades and augments
-        remaining_percentage = 1.0 - unit_percentage
-        upgrade_percentage = random.uniform(0, remaining_percentage)
-        augment_percentage = remaining_percentage - upgrade_percentage
+        remaining_budget = budget
+        attempts = 0
+        max_attempts = 200
         
-        upgrade_budget = int(budget * upgrade_percentage)
-        augment_budget = int(budget * augment_percentage)
-
-        if game:
-            game.add_message(f"Enemy allocation: {unit_percentage:.1%} units ({unit_budget}g), {upgrade_percentage:.1%} upgrades ({upgrade_budget}g), {augment_percentage:.1%} augments ({augment_budget}g)")
-        
-        # Phase 1: Buy units with unit budget
-        unit_types = get_available_units()
-        remaining_unit_budget = unit_budget
-        
-        while remaining_unit_budget >= 40 and unit_types:  # 40 is base unit cost
-            unit_type = random.choice(unit_types)
-            unit = create_unit(unit_type)
-            if unit:
-                unit_cost = self.get_unit_cost()
-                if remaining_unit_budget >= unit_cost:
-                    position = self.find_empty_position()
-                    if position and self.add_unit(unit, position[0], position[1]):
-                        remaining_unit_budget -= unit_cost
-                        self.units_purchased += 1
-                        if game:
-                            game.add_message(f"Enemy bought {unit.name} for {unit_cost} gold")
-                    else:
-                        break  # No more space for units
-                else:
-                    break  # Can't afford more units
-            else:
-                break  # Failed to create unit
-        
-        # Phase 2: Buy upgrades (passive skills) with upgrade budget
-        remaining_upgrade_budget = upgrade_budget + remaining_unit_budget
-        
-        while remaining_upgrade_budget >= 30 and self.units:  # 30 is base passive cost
-            # Pick a random unit that can still get upgrades
-            eligible_units = [unit for unit in self.units if len(unit.passive_skills) < 5]  # Assume max 5 passives
-            if not eligible_units:
-                break
-                
-            unit = random.choice(eligible_units)
-            skill_cost = self.get_passive_cost(unit)
+        # Keep buying randomly until budget < 50 or max attempts reached
+        while remaining_budget >= 50 and attempts < max_attempts:
+            attempts += 1
             
-            if remaining_upgrade_budget >= skill_cost:
-                # Get available passive skills for this unit
-                if hasattr(unit, 'get_available_passive_skills'):
-                    available_passives = unit.get_available_passive_skills()
-                    if not available_passives:
-                        continue  # No skills available for this unit type
-                    
-                    # Filter out skills the unit already has
-                    eligible_passives = []
-                    for passive_skill in available_passives:
-                        # Check if unit already has this skill
-                        skill_name = passive_skill.value if hasattr(passive_skill, 'value') else str(passive_skill)
-                        has_skill = any(existing.name.lower().replace(" ", "_") == skill_name.lower().replace(" ", "_")
-                                      for existing in unit.passive_skills)
-                        if not has_skill:
-                            eligible_passives.append(passive_skill)
-                    
-                    if eligible_passives:
-                        skill_to_buy = random.choice(eligible_passives)
-                        from skill_factory import create_skill
-                        skill = create_skill(skill_to_buy)
-                        if skill and unit.add_passive_skill(skill):
-                            remaining_upgrade_budget -= skill_cost
-                            if game:
-                                game.add_message(f"Enemy bought {skill.name} for {unit.name} for {skill_cost} gold")
-                        else:
-                            # Failed to create/add skill, try another unit
-                            continue
-                    else:
-                        # No eligible skills for this unit, try another
-                        continue
-                else:
-                    # Unit doesn't have get_available_passive_skills method, skip
-                    continue
-            else:
-                break  # Can't afford more upgrades
+            # Randomly choose what to buy
+            # Weighted: 50% units, 25% passives, 25% augments
+            choice = random.choices(
+                ['unit', 'passive', 'augment'],
+                weights=[0.5, 0.25, 0.25],
+                k=1
+            )[0]
+            
+            cost_spent = 0
+            
+            if choice == 'unit':
+                cost_spent = self.buy_random_unit(remaining_budget, game)
+            elif choice == 'passive':
+                # Only try to buy passives if we have units
+                if self.units:
+                    cost_spent = self.buy_random_passive(remaining_budget, game)
+            elif choice == 'augment':
+                cost_spent = self.buy_random_augment(remaining_budget, game)
+            
+            remaining_budget -= cost_spent
+            
+            # If we haven't spent anything in 10 attempts, try to force a unit purchase
+            if attempts % 10 == 0 and cost_spent == 0:
+                # Check if we can afford the cheapest option (base unit)
+                if remaining_budget >= 40 and not self.units:
+                    # Force try to buy a unit
+                    cost_spent = self.buy_random_unit(remaining_budget, game)
+                    remaining_budget -= cost_spent
         
-        # Phase 3: Buy augments with augment budget
-        remaining_augment_budget = augment_budget + remaining_upgrade_budget
-        enemy_augments = generate_augment_shop(20)  # Larger pool for enemy to choose from
-        random.shuffle(enemy_augments)  # Randomize order
+        # Equip any unequipped items randomly
+        self.equip_items_randomly()
         
-        for augment in enemy_augments:
-            if remaining_augment_budget >= augment.cost:
-                # 70% chance to buy each affordable augment (makes enemy slightly less optimal than player)
-                if random.random() < 0.7:
-                    # Set the augment's team to this team
-                    augment.team = self
-                    
-                    # Let augment handle its own purchase logic
-                    if augment.on_buy(self):
-                        remaining_augment_budget -= augment.cost
-                        self.add_augment(augment)
-        
-        # Equip items to enemy units randomly
-        for item in self.unequipped_items[:]:  # Use slice copy to avoid modification during iteration
-            available_units = [unit for unit in self.units if len(unit.items) < 3]
-            if available_units:
-                unit = random.choice(available_units)
-                unit.add_item(item)
-                self.unequipped_items.remove(item)
-        
-        total_spent = (unit_budget - remaining_unit_budget) + (upgrade_budget - remaining_upgrade_budget) + (augment_budget - remaining_augment_budget)
+        # Report final spending
+        total_spent = budget - remaining_budget
         if game:
-            game.add_message(f"Enemy spent {total_spent} gold total, {budget - total_spent} left over")
+            if attempts >= max_attempts:
+                game.add_message(f"Enemy stopped after {max_attempts} attempts")
+            game.add_message(f"Enemy spent {total_spent} gold total, {remaining_budget} gold left over")
