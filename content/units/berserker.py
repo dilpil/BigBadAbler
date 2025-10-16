@@ -111,12 +111,19 @@ class Frenzy(Skill):
     def should_cast(self, caster) -> bool:
         return not any(e.name == "Frenzy" for e in caster.status_effects)
         
+    def _caster_has_passive_skill(self, caster, skill_enum: PassiveSkill) -> bool:
+        """Check if caster has a specific passive skill"""
+        for passive in caster.passive_skills:
+            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_enum:
+                return True
+        return False
+        
     def execute(self, caster):
         # Check for passive upgrades
-        fast_frenzy = PassiveSkill.FAST_FRENZY in caster.passive_skills
-        hungry_frenzy = PassiveSkill.HUNGRY_FRENZY in caster.passive_skills
-        immortal_frenzy = PassiveSkill.IMMORTAL_FRENZY in caster.passive_skills
-        frenzy_cry = PassiveSkill.FRENZY_CRY in caster.passive_skills
+        fast_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.FAST_FRENZY)
+        hungry_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.HUNGRY_FRENZY)
+        immortal_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.IMMORTAL_FRENZY)
+        frenzy_cry = self._caster_has_passive_skill(caster, PassiveSkill.FRENZY_CRY)
         
         # Create frenzy effect with upgrades
         effect = FrenzyEffect()
