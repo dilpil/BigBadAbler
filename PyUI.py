@@ -142,6 +142,7 @@ class PyUI:
     
     def load_sounds(self):
         """Load all sound effects"""
+        self.sound_muted = True  # Set to False to enable sounds
         try:
             self.sounds = {
                 'death': pygame.mixer.Sound('soundFX/death_5.wav'),
@@ -153,9 +154,11 @@ class PyUI:
         except pygame.error as e:
             print(f"Error loading sounds: {e}")
             self.sounds = {}
-    
+
     def play_sound(self, sound_name):
         """Play a sound effect"""
+        if self.sound_muted:
+            return
         if sound_name in self.sounds:
             self.sounds[sound_name].play()
         
@@ -1146,12 +1149,33 @@ class PyUI:
         
         # Draw HP bar (moved up to not cover border)
         hp_bar_y = y + offset_y + self.tile_size - 16
+        bar_x = x + offset_x + 4
+        bar_width = self.tile_size - 8
         pygame.draw.rect(self.screen, self.colors['hp_bar_bg'],
-                        (x + offset_x + 4, hp_bar_y, self.tile_size - 8, 4))
-        hp_width = int((self.tile_size - 8) * (unit.hp / unit.max_hp))
+                        (bar_x, hp_bar_y, bar_width, 4))
+
+        # Draw orange damage drain portion (from hp to old_cur_hp)
+        if hasattr(unit, 'old_cur_hp') and unit.old_cur_hp > unit.hp:
+            old_hp_width = int(bar_width * (unit.old_cur_hp / unit.max_hp))
+            hp_width = int(bar_width * (unit.hp / unit.max_hp))
+            if old_hp_width > hp_width:
+                pygame.draw.rect(self.screen, (255, 150, 50),
+                                (bar_x + hp_width, hp_bar_y, old_hp_width - hp_width, 4))
+
+        # Draw light green heal fill portion (from old_cur_hp to hp)
+        if hasattr(unit, 'old_cur_hp') and unit.old_cur_hp < unit.hp:
+            old_hp_width = int(bar_width * (unit.old_cur_hp / unit.max_hp))
+            hp_width = int(bar_width * (unit.hp / unit.max_hp))
+            if hp_width > old_hp_width:
+                pygame.draw.rect(self.screen, (150, 255, 150),
+                                (bar_x + old_hp_width, hp_bar_y, hp_width - old_hp_width, 4))
+
+        # Draw current HP bar (green) - use min of hp and old_cur_hp for visual
+        visual_hp = min(unit.hp, unit.old_cur_hp) if hasattr(unit, 'old_cur_hp') else unit.hp
+        hp_width = int(bar_width * (visual_hp / unit.max_hp))
         if hp_width > 0:
             pygame.draw.rect(self.screen, self.colors['hp_bar'],
-                            (x + offset_x + 4, hp_bar_y, hp_width, 4))
+                            (bar_x, hp_bar_y, hp_width, 4))
                             
         # Draw MP bar (shows spell mana) - moved up
         mp_bar_y = y + offset_y + self.tile_size - 10

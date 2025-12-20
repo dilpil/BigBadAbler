@@ -86,6 +86,9 @@ class Unit:
         
         self.max_hp = 100
         self.hp = self.max_hp
+        self.old_cur_hp = self.max_hp  # Visual HP for damage/heal animation
+        self.damage_anim_timer = 0.0   # Seconds remaining in drain animation
+        self.heal_anim_timer = 0.0     # Seconds remaining in heal fill animation
         self.hp_regen = 1.0
         
         self.mp_regen = 0.0  # Mana regen for spell, defaults to 0
@@ -202,7 +205,10 @@ class Unit:
             
         actual_damage = amount * mitigation
         self.hp -= actual_damage
-        
+
+        # Start/extend damage drain animation
+        self.damage_anim_timer = 0.5
+
         # Visual effect - white flash on damage
         self.flash_color = (255, 255, 255)
         self.flash_timer = 0.2
@@ -222,7 +228,7 @@ class Unit:
         else:
             damage_color = (255, 255, 0)  # Yellow for other damage types
             
-        self.board.make_text_floater(f"{int(actual_damage)}", damage_color, unit=self)
+        self.board.make_text_floater(f"-{int(actual_damage)}", damage_color, unit=self)
         
         # Add to combat log and play hit sound
         if self.board.game:
@@ -247,17 +253,23 @@ class Unit:
     def heal(self, amount: float, source):
         if not self.is_alive():
             return
-            
+
         old_hp = self.hp
         self.hp = min(self.hp + amount, self.max_hp)
         actual_heal = self.hp - old_hp
-        
-        # Visual effect - bright green flash on heal
+
+        # Start heal fill animation
         if actual_heal > 0:
+            self.heal_anim_timer = 0.5
+
+            # Visual effect - bright green flash on heal
             self.flash_color = (0, 255, 0)
             self.flash_timer = 0.3
             self.flash_duration = 0.3
-        
+
+            # Text floater for healing amount (bright green)
+            self.board.make_text_floater(f"+{int(actual_heal)}", (50, 255, 50), unit=self)
+
         self.board.raise_event("unit_healed", unit=self, amount=actual_heal, source=source)
         return actual_heal
     
@@ -346,7 +358,25 @@ class Unit:
             return
             
         self.hp = min(self.hp + self.hp_regen * dt, self.max_hp)
-        
+
+        # Update damage drain animation
+        if self.damage_anim_timer > 0 and self.old_cur_hp > self.hp:
+            drain_rate = (self.old_cur_hp - self.hp) / self.damage_anim_timer
+            self.old_cur_hp -= drain_rate * dt
+            self.damage_anim_timer -= dt
+            if self.old_cur_hp < self.hp:
+                self.old_cur_hp = self.hp
+        # Update heal fill animation
+        elif self.heal_anim_timer > 0 and self.old_cur_hp < self.hp:
+            fill_rate = (self.hp - self.old_cur_hp) / self.heal_anim_timer
+            self.old_cur_hp += fill_rate * dt
+            self.heal_anim_timer -= dt
+            if self.old_cur_hp > self.hp:
+                self.old_cur_hp = self.hp
+        elif self.old_cur_hp != self.hp:
+            # No animation active, snap to actual hp
+            self.old_cur_hp = self.hp
+
         # Add mp_regen to spell if not casting
         if self.spell and self.state != UnitState.CASTING:
             self.spell.add_mana(self.mp_regen * dt)
@@ -443,6 +473,9 @@ class Unit:
         """Reset unit to fresh state for new round."""
         # Basic stats
         self.hp = self.max_hp
+        self.old_cur_hp = self.max_hp
+        self.damage_anim_timer = 0.0
+        self.heal_anim_timer = 0.0
         self.status_effects.clear()
         
         # Reset spell mana to full
@@ -520,6 +553,31 @@ class Unit:
             item.remove_from_unit(self)
     
     def add_status_effect(self, status_effect):
+        from status_effect import StackType
+
+        # Check if a status effect with the same name already exists
+        for existing_effect in self.status_effects:
+            if existing_effect.name == status_effect.name:
+                # Handle stacking based on stack_type
+                if status_effect.stack_type == StackType.STACK_INTENSITY:
+                    # Increment intensity/stacks
+                    existing_effect.stacks += status_effect.stacks
+                    # Refresh duration if new effect has longer duration
+                    if status_effect.remaining_duration is not None:
+                        if existing_effect.remaining_duration is None:
+                            existing_effect.remaining_duration = status_effect.remaining_duration
+                        else:
+                            existing_effect.remaining_duration = max(existing_effect.remaining_duration, status_effect.remaining_duration)
+                elif status_effect.stack_type == StackType.STACK_DURATION:
+                    # Refresh/extend duration
+                    if status_effect.remaining_duration is not None:
+                        if existing_effect.remaining_duration is None:
+                            existing_effect.remaining_duration = status_effect.remaining_duration
+                        else:
+                            existing_effect.remaining_duration = max(existing_effect.remaining_duration, status_effect.remaining_duration)
+                return
+
+        # No existing effect found, add the new one
         self.status_effects.append(status_effect)
         status_effect.apply(self)
     
