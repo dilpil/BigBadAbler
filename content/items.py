@@ -573,29 +573,37 @@ class ThrowingKnives(Item):
     """Attacks hit another random enemy"""
     def __init__(self):
         super().__init__("Throwing Knives", "Attacks also hit another random enemy within 3 tiles", 40)
+        self._throwing = False  # Reentrancy guard
 
     def on_event(self, event_type: str, **kwargs):
         if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            if self._throwing:
+                return  # Prevent reentrant calls
             primary_target = kwargs.get("target")
-            self.throw_knife(primary_target)
+            self.throw_knife(primary_target, kwargs.get("damage", 0))
 
-    def throw_knife(self, primary_target):
+    def throw_knife(self, primary_target, original_damage):
         import random
         if not self.unit or not self.unit.board:
             return
 
-        enemies = self.unit.board.get_enemy_units(self.unit.team)
-        potential_targets = []
+        self._throwing = True
+        try:
+            enemies = self.unit.board.get_enemy_units(self.unit.team)
+            potential_targets = []
 
-        for enemy in enemies:
-            if (enemy.is_alive() and enemy != primary_target and
-                self.unit.board.get_distance(self.unit, enemy) <= 3):
-                potential_targets.append(enemy)
+            for enemy in enemies:
+                if (enemy.is_alive() and enemy != primary_target and
+                    self.unit.board.get_distance(self.unit, enemy) <= 3):
+                    potential_targets.append(enemy)
 
-        if potential_targets:
-            knife_target = random.choice(potential_targets)
-            knife_damage = self.unit.attack_damage * 0.75
-            knife_target.take_damage(knife_damage, "physical", self.unit)
+            if potential_targets:
+                knife_target = random.choice(potential_targets)
+                # Use 75% of original attack damage, not current attack_damage stat
+                knife_damage = original_damage * 0.75 if original_damage > 0 else self.unit.attack_damage * 0.75
+                knife_target.take_damage(knife_damage, "physical", self.unit)
+        finally:
+            self._throwing = False
 
 
 class VenomousBlade(Item):
