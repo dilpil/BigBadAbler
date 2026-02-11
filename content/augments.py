@@ -76,6 +76,11 @@ class HealthBoostAugment(PassiveAugment):
     def apply_to_unit(self, unit):
         """Apply HP boost to a single unit"""
         if unit.is_alive():
+            # Check if unit already has this effect to avoid double-applying hp bonus
+            has_effect = any(e.name == "Vitality Surge" for e in unit.status_effects)
+            if has_effect:
+                return
+
             hp_bonus = int(unit.max_hp * 0.25)
             effect = StatModifierEffect(
                 "Vitality Surge",
@@ -84,8 +89,8 @@ class HealthBoostAugment(PassiveAugment):
             )
             effect.source = self
             unit.add_status_effect(effect)
-            # Also heal for the increased amount
-            unit.hp += hp_bonus
+            # Also increase current hp to match the new max
+            unit.hp = min(unit.hp + hp_bonus, unit.max_hp)
 
     def on_buy(self, team):
         """When purchased, apply to all existing units"""
