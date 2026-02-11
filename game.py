@@ -371,7 +371,11 @@ class Game:
             
             # Let the board handle all combat updates
             self.board.update_combat(dt)
-                
+
+            # Update team augments (for on_frame effects like Regeneration Field)
+            self.player_team.update(dt)
+            self.enemy_team.update(dt)
+
             if self.check_combat_end() or self.combat_time >= self.max_combat_time:
                 self.start_post_combat()
         elif self.phase == GamePhase.POST_COMBAT:

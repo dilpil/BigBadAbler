@@ -101,6 +101,12 @@ class Team:
         self.unequipped_items.clear()
         self.units_purchased = 0
     
+    def update(self, dt: float):
+        """Update all passive augments during combat"""
+        for augment in self.passive_augments:
+            if hasattr(augment, 'on_frame'):
+                augment.on_frame(dt)
+
     def on_battle_start(self):
         """Called at the start of battle - activate passive augments"""
         for augment in self.passive_augments:
