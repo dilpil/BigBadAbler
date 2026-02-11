@@ -91,7 +91,7 @@ class Unit:
         self.heal_anim_timer = 0.0     # Seconds remaining in heal fill animation
         self.hp_regen = 1.0
         
-        self.mp_regen = 0.0  # Mana regen for spell, defaults to 0
+        self.mp_regen = 10.0  # Mana regen per second, defaults to 10
         
         self.strength = 0
         self.intelligence = 0
@@ -157,10 +157,6 @@ class Unit:
         
         attack_time = self.base_attack_time / (1 + self.attack_speed / 100)
         self.attack_timer = attack_time
-        
-        # Grant mana to spell on attack
-        if self.spell and self.state != UnitState.CASTING:
-            self.spell.add_mana(10)
         
         # Check if this is a ranged attack
         distance = self.board.get_distance(self, target)
