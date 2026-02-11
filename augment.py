@@ -92,3 +92,8 @@ class PassiveAugment(Augment):
         """Called at the end of each round"""
         # Subclasses should override this
         pass
+
+    def apply_to_unit(self, unit):
+        """Apply this augment's buff to a specific unit. Override in subclasses."""
+        # Subclasses should override this for stat-modifying augments
+        pass

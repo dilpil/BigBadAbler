@@ -43,19 +43,24 @@ class AttackBoostAugment(PassiveAugment):
             40
         )
 
-    def on_battle_start(self):
-        """Apply the attack boost to all units at battle start via status effect"""
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    bonus = int(unit.attack_damage * 0.25)
-                    effect = StatModifierEffect(
-                        "Berserker's Blessing",
-                        duration=-1,  # Lasts until combat ends
-                        stat_changes={"attack_damage": bonus}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
+    def apply_to_unit(self, unit):
+        """Apply attack boost to a single unit"""
+        if unit.is_alive():
+            bonus = int(unit.attack_damage * 0.25)
+            effect = StatModifierEffect(
+                "Berserker's Blessing",
+                duration=None,
+                stat_changes={"attack_damage": bonus}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class HealthBoostAugment(PassiveAugment):
@@ -68,21 +73,26 @@ class HealthBoostAugment(PassiveAugment):
             40
         )
 
-    def on_battle_start(self):
-        """Apply the HP boost to all units at battle start via status effect"""
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    hp_bonus = int(unit.max_hp * 0.25)
-                    effect = StatModifierEffect(
-                        "Vitality Surge",
-                        duration=-1,  # Lasts until combat ends
-                        stat_changes={"max_hp": hp_bonus}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
-                    # Also heal for the increased amount
-                    unit.hp += hp_bonus
+    def apply_to_unit(self, unit):
+        """Apply HP boost to a single unit"""
+        if unit.is_alive():
+            hp_bonus = int(unit.max_hp * 0.25)
+            effect = StatModifierEffect(
+                "Vitality Surge",
+                duration=None,
+                stat_changes={"max_hp": hp_bonus}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+            # Also heal for the increased amount
+            unit.hp += hp_bonus
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class ArmorBoostAugment(PassiveAugment):
@@ -95,18 +105,23 @@ class ArmorBoostAugment(PassiveAugment):
             35
         )
 
-    def on_battle_start(self):
-        """Apply the armor boost to all units at battle start via status effect"""
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    effect = StatModifierEffect(
-                        "Iron Fortification",
-                        duration=-1,  # Lasts until combat ends
-                        stat_changes={"armor": 25}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
+    def apply_to_unit(self, unit):
+        """Apply armor boost to a single unit"""
+        if unit.is_alive():
+            effect = StatModifierEffect(
+                "Iron Fortification",
+                duration=None,
+                stat_changes={"armor": 25}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class AttackSpeedBoostAugment(PassiveAugment):
@@ -119,21 +134,26 @@ class AttackSpeedBoostAugment(PassiveAugment):
             40
         )
 
-    def on_battle_start(self):
-        """Apply the attack speed boost to all units at battle start via status effect"""
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    bonus = int(unit.attack_speed * 0.25)
-                    # Minimum bonus of 25 if unit has low attack speed
-                    bonus = max(bonus, 25)
-                    effect = StatModifierEffect(
-                        "Swift Strikes",
-                        duration=-1,  # Lasts until combat ends
-                        stat_changes={"attack_speed": bonus}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
+    def apply_to_unit(self, unit):
+        """Apply attack speed boost to a single unit"""
+        if unit.is_alive():
+            bonus = int(unit.attack_speed * 0.25)
+            # Minimum bonus of 25 if unit has low attack speed
+            bonus = max(bonus, 25)
+            effect = StatModifierEffect(
+                "Swift Strikes",
+                duration=None,
+                stat_changes={"attack_speed": bonus}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class GoldGenerationAugment(PassiveAugment):
@@ -165,17 +185,23 @@ class DefensiveAuraAugment(PassiveAugment):
             50
         )
 
-    def on_battle_start(self):
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    effect = StatModifierEffect(
-                        "Defensive Aura",
-                        duration=-1,
-                        stat_changes={"armor": 50, "magic_resist": 50}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
+    def apply_to_unit(self, unit):
+        """Apply defensive aura to a single unit"""
+        if unit.is_alive():
+            effect = StatModifierEffect(
+                "Defensive Aura",
+                duration=None,
+                stat_changes={"armor": 50, "magic_resist": 50}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class RegenerationFieldAugment(PassiveAugment):
@@ -213,17 +239,23 @@ class FireResistanceAugment(PassiveAugment):
             35
         )
 
-    def on_battle_start(self):
-        if self.team and self.team.board:
-            for unit in self.team.units:
-                if unit.is_alive():
-                    effect = StatModifierEffect(
-                        "Fire Resistance",
-                        duration=-1,
-                        stat_changes={"fire_resist": 50}
-                    )
-                    effect.source = self
-                    unit.add_status_effect(effect)
+    def apply_to_unit(self, unit):
+        """Apply fire resistance to a single unit"""
+        if unit.is_alive():
+            effect = StatModifierEffect(
+                "Fire Resistance",
+                duration=None,
+                stat_changes={"fire_resist": 50}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+
+    def on_buy(self, team):
+        """When purchased, apply to all existing units"""
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
 
 
 class DeathsChillAugment(PassiveAugment):

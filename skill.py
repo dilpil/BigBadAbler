@@ -93,10 +93,16 @@ class Skill:
         caster.board.add_unit(minion, x, y, caster.team)
         minion.summoner = caster
         minion.is_summoned = True
-        
+
+        # Apply team augment buffs to summoned unit
+        if hasattr(caster, 'team_obj') and caster.team_obj:
+            for augment in caster.team_obj.passive_augments:
+                if hasattr(augment, 'apply_to_unit'):
+                    augment.apply_to_unit(minion)
+
         # Fire the OnMinionSummoned event
         caster.board.raise_event("minion_summoned", summoner=caster, minion=minion, skill=self)
-        
+
         return minion
     
     def apply_to_owner(self, owner):

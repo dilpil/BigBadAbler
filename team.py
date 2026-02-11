@@ -21,17 +21,22 @@ class Team:
         """Add a unit to the team and optionally place it on the board"""
         self.units.append(unit)
         unit.team_obj = self  # Reference back to team
-        
+
         # Try to place on board if coordinates provided
         if self.board and x is not None and y is not None:
             if self.board.add_unit(unit, x, y, self.name):
                 unit.original_x = x
                 unit.original_y = y
-                return True
             else:
                 # Couldn't place on board, remove from team
                 self.units.remove(unit)
                 return False
+
+        # Apply all passive augment buffs to the new unit
+        for augment in self.passive_augments:
+            if hasattr(augment, 'apply_to_unit'):
+                augment.apply_to_unit(unit)
+
         return True
     
     def remove_unit(self, unit: Unit):
@@ -81,6 +86,12 @@ class Team:
             unit.reset()
             if self.board and hasattr(unit, 'original_x') and hasattr(unit, 'original_y'):
                 self.board.add_unit(unit, unit.original_x, unit.original_y, self.name)
+
+        # Reapply augment buffs after reset (since reset clears status effects)
+        for unit in self.units:
+            for augment in self.passive_augments:
+                if hasattr(augment, 'apply_to_unit'):
+                    augment.apply_to_unit(unit)
     
     def clear(self):
         """Clear all units and augments (for enemy team regeneration)"""

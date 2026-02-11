@@ -581,6 +581,44 @@ class TestUnitReset(unittest.TestCase):
         self.assertEqual(unit.hp, unit.max_hp, "HP should be restored")
 
 
+class TestAugmentPersistence(unittest.TestCase):
+    """Test that augment buffs persist correctly through game phases."""
+
+    def test_augment_buff_persists_through_combat(self):
+        """Test that stat augment buffs persist when combat starts."""
+        from content.augments import HealthBoostAugment
+
+        game = Game(GameMode.ASYNC)
+        game.start_new_round()
+
+        # Buy a unit
+        pos = game.player_team.find_empty_position()
+        game.purchase_unit(UnitType.NECROMANCER, pos[0], pos[1])
+        unit = game.player_team.units[0]
+        base_hp = unit.max_hp
+
+        # Buy health boost augment
+        aug = HealthBoostAugment()
+        aug.on_buy(game.player_team)
+        game.player_team.add_augment(aug)
+
+        # Verify buff is applied during shopping
+        boosted_hp = unit.max_hp
+        self.assertGreater(boosted_hp, base_hp, "HP should be boosted during shopping")
+
+        # Start combat
+        game.start_combat()
+        self.assertEqual(game.phase, GamePhase.COMBAT)
+
+        # Run a few combat updates
+        for _ in range(10):
+            game.update_combat(1/60)
+
+        # Verify buff persists
+        self.assertEqual(unit.max_hp, boosted_hp,
+            f"HP buff should persist during combat. Expected {boosted_hp}, got {unit.max_hp}")
+
+
 if __name__ == '__main__':
     # Run tests with verbose output
     unittest.main(verbosity=2)
