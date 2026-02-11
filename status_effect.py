@@ -83,7 +83,8 @@ class StatModifierEffect(StatusEffect):
     def remove(self, unit):
         for stat, value in self.stat_modifiers.items():
             if hasattr(unit, stat):
-                setattr(unit, stat, getattr(unit, stat) - value)
+                # Multiply by stacks to remove all accumulated changes
+                setattr(unit, stat, getattr(unit, stat) - (value * self.stacks))
         super().remove(unit)
 
 

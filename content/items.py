@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from status_effect import DamageOverTimeEffect, StatModifierEffect
+from status_effect import DamageOverTimeEffect, StatModifierEffect, StackType
 from projectile import Projectile
 from constants import FRAME_TIME
 import math
@@ -202,8 +202,8 @@ class Sunderer(Item):
         if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
             target = kwargs.get("target")
             if target and target.is_alive():
-                # Apply sunder debuff
-                sunder = StatModifierEffect("Sunder", None, {"armor": -5})
+                # Apply sunder debuff (stacks infinitely)
+                sunder = StatModifierEffect("Sunder", None, {"armor": -5}, StackType.STACK_INTENSITY)
                 sunder.source = self.unit
                 target.add_status_effect(sunder)
 

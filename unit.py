@@ -563,6 +563,11 @@ class Unit:
                 if status_effect.stack_type == StackType.STACK_INTENSITY:
                     # Increment intensity/stacks
                     existing_effect.stacks += status_effect.stacks
+                    # Apply additional stat changes for StatModifierEffect
+                    if hasattr(status_effect, 'stat_modifiers') and status_effect.stat_modifiers:
+                        for stat, value in status_effect.stat_modifiers.items():
+                            if hasattr(self, stat):
+                                setattr(self, stat, getattr(self, stat) + value)
                     # Refresh duration if new effect has longer duration
                     if status_effect.remaining_duration is not None:
                         if existing_effect.remaining_duration is None:
