@@ -69,7 +69,7 @@ def create_berserker() -> Berserker:
 
 class FrenzyEffect(StatusEffect):
     """Custom status effect for Frenzy that provides attack speed, lifesteal, and optionally armor"""
-    def __init__(self, duration: float = -1):  # -1 means until end of combat
+    def __init__(self, duration: float = None):  # None means until end of combat
         super().__init__("Frenzy", duration)
         self.attack_speed_bonus = 10
         self.lifesteal_percent = 10
