@@ -68,34 +68,35 @@ def create_berserker() -> Berserker:
 # ===== CUSTOM STATUS EFFECTS =====
 
 class FrenzyEffect(StatusEffect):
-    """Custom status effect for Frenzy that provides attack speed, lifesteal, and optionally armor"""
+    """Custom status effect for Frenzy that provides attack speed, lifesteal, and optionally armor. Stacks."""
     def __init__(self, duration: float = None):  # None means until end of combat
-        super().__init__("Frenzy", duration)
+        from status_effect import StackType
+        super().__init__("Frenzy", duration, StackType.STACK_INTENSITY)
         self.attack_speed_bonus = 10
         self.lifesteal_percent = 10
         self.armor_bonus = 0
         self.magic_resist_bonus = 0
-        
+
     def apply(self, unit):
         super().apply(unit)
         # Apply stat bonuses
         unit.attack_speed += self.attack_speed_bonus
         unit.armor += self.armor_bonus
         unit.magic_resist += self.magic_resist_bonus
-        
+
     def remove(self, unit):
-        # Remove stat bonuses
-        unit.attack_speed -= self.attack_speed_bonus
-        unit.armor -= self.armor_bonus
-        unit.magic_resist -= self.magic_resist_bonus
+        # Remove stat bonuses (multiply by stacks)
+        unit.attack_speed -= self.attack_speed_bonus * self.stacks
+        unit.armor -= self.armor_bonus * self.stacks
+        unit.magic_resist -= self.magic_resist_bonus * self.stacks
         super().remove(unit)
         
     def on_event(self, event_type: str, **kwargs):
-        # Handle lifesteal on attack
+        # Handle lifesteal on attack (scales with stacks)
         if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
             damage_dealt = kwargs.get("damage", 0)
             if damage_dealt > 0:
-                heal_amount = damage_dealt * (self.lifesteal_percent / 100.0)
+                heal_amount = damage_dealt * (self.lifesteal_percent * self.stacks / 100.0)
                 self.unit.heal(heal_amount, self.unit)
 
 
@@ -109,7 +110,8 @@ class Frenzy(Skill):
         self.range = 0
         
     def should_cast(self, caster) -> bool:
-        return not any(e.name == "Frenzy" for e in caster.status_effects)
+        # Always cast when we have mana - Frenzy stacks!
+        return True
         
     def _caster_has_passive_skill(self, caster, skill_enum: PassiveSkill) -> bool:
         """Check if caster has a specific passive skill"""
