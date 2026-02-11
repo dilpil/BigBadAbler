@@ -394,6 +394,234 @@ class ArmorOfTime(Item):
         super().apply_to_unit(unit)
 
 
+# ===== NEW ITEMS (converted from unit upgrades) =====
+
+class ThunderGloves(Item):
+    """Melee attacks deal bonus lightning damage"""
+    def __init__(self):
+        super().__init__("Thunder Gloves", "+65 lightning damage on melee attacks", 45)
+        self.bonus_damage = 65
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            target = kwargs.get("target")
+            # Only trigger for melee attacks
+            if target and target.is_alive() and self.unit.attack_range <= 1:
+                target.take_damage(self.bonus_damage, "lightning", self.unit)
+
+
+class LeapBoots(Item):
+    """On kill, leap to lowest HP enemy within 3 tiles"""
+    def __init__(self):
+        super().__init__("Leap Boots", "On kill, leap to lowest HP enemy within 3 tiles", 50)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_death" and kwargs.get("killer") == self.unit:
+            self.perform_leap()
+
+    def perform_leap(self):
+        if not self.unit or not self.unit.board:
+            return
+
+        # Find lowest HP enemy within 3 tiles
+        enemies = self.unit.board.get_enemy_units(self.unit.team)
+        valid_targets = []
+
+        for enemy in enemies:
+            distance = self.unit.board.get_distance(self.unit, enemy)
+            if distance <= 3 and enemy.is_alive():
+                valid_targets.append(enemy)
+
+        if not valid_targets:
+            return
+
+        # Find lowest HP target
+        target = min(valid_targets, key=lambda e: e.hp)
+
+        # Find adjacent position to leap to
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        for dx, dy in directions:
+            x, y = target.x + dx, target.y + dy
+            if self.unit.board.is_valid_position(x, y) and not self.unit.board.get_unit_at(x, y):
+                self.unit.board.move_unit(self.unit, x, y)
+                break
+
+
+class ArmorShredder(Item):
+    """Attacks permanently reduce target armor"""
+    def __init__(self):
+        super().__init__("Armor Shredder", "Attacks permanently reduce target armor by 1", 40)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            target = kwargs.get("target")
+            if target and target.is_alive():
+                target.armor = max(0, target.armor - 1)
+
+
+class CleavingBlade(Item):
+    """Attacks hit adjacent enemies"""
+    def __init__(self):
+        super().__init__("Cleaving Blade", "Attacks also hit up to 3 adjacent enemies", 55)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            primary_target = kwargs.get("target")
+            self.perform_cleave(primary_target)
+
+    def perform_cleave(self, primary_target):
+        if not self.unit or not self.unit.board or not primary_target:
+            return
+
+        # Find adjacent enemies to primary target
+        enemies = self.unit.board.get_enemy_units(self.unit.team)
+        cleave_targets = []
+
+        for enemy in enemies:
+            if enemy != primary_target and enemy.is_alive():
+                distance = self.unit.board.get_distance(primary_target, enemy)
+                if distance <= 1:
+                    cleave_targets.append(enemy)
+
+        # Hit up to 3 adjacent enemies
+        for target in cleave_targets[:3]:
+            damage = self.unit.attack_damage
+            if self.unit.strength > 0:
+                damage *= (1 + self.unit.strength / 100.0)
+            target.take_damage(damage, "physical", self.unit)
+
+
+class FireStaff(Item):
+    """Attacks deal bonus fire damage based on INT"""
+    def __init__(self):
+        super().__init__("Fire Staff", "Attacks deal additional fire damage equal to Intelligence", 45)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            target = kwargs.get("target")
+            if target and target.is_alive():
+                fire_damage = getattr(self.unit, 'intelligence', 0)
+                if fire_damage > 0:
+                    target.take_damage(fire_damage, "fire", self.unit)
+
+
+class HealingBlade(Item):
+    """On hit, heal nearest ally"""
+    def __init__(self):
+        super().__init__("Healing Blade", "On hit, heal nearest ally for 50 HP", 50)
+        self.heal_amount = 50
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            damage = kwargs.get("damage", 0)
+            if damage > 0 and self.unit.board:
+                import random
+                allies = self.unit.board.get_allied_units(self.unit.team)
+                injured_allies = [a for a in allies if a.is_alive() and a.hp < a.max_hp]
+
+                if injured_allies:
+                    # Find nearest ally
+                    nearest_dist = min(self.unit.board.get_distance(self.unit, a) for a in injured_allies)
+                    nearest_allies = [a for a in injured_allies
+                                     if self.unit.board.get_distance(self.unit, a) == nearest_dist]
+                    target_ally = random.choice(nearest_allies)
+                    target_ally.heal(self.heal_amount, self.unit)
+
+
+class CloakOfShadows(Item):
+    """Gain dodge stacks over time"""
+    def __init__(self):
+        super().__init__("Cloak of Shadows", "Gain 1 dodge every 2 seconds", 55)
+        self.dodge_timer = 0
+        self.dodge_interval = 2.0
+
+    def on_frame(self, dt: float):
+        if not self.unit or not self.unit.is_alive():
+            return
+
+        self.dodge_timer += dt
+        if self.dodge_timer >= self.dodge_interval:
+            self.dodge_timer -= self.dodge_interval
+
+            # Check if unit already has dodge effect
+            existing_dodge = None
+            for effect in self.unit.status_effects:
+                if effect.name == "Dodge":
+                    existing_dodge = effect
+                    break
+
+            if existing_dodge and hasattr(existing_dodge, 'stacks'):
+                existing_dodge.stacks += 1
+            else:
+                # Create new dodge effect
+                from content.units.assassin import DodgeEffect
+                dodge = DodgeEffect(1)
+                dodge.source = self.unit
+                self.unit.add_status_effect(dodge)
+
+
+class ThrowingKnives(Item):
+    """Attacks hit another random enemy"""
+    def __init__(self):
+        super().__init__("Throwing Knives", "Attacks also hit another random enemy within 3 tiles", 40)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            primary_target = kwargs.get("target")
+            self.throw_knife(primary_target)
+
+    def throw_knife(self, primary_target):
+        import random
+        if not self.unit or not self.unit.board:
+            return
+
+        enemies = self.unit.board.get_enemy_units(self.unit.team)
+        potential_targets = []
+
+        for enemy in enemies:
+            if (enemy.is_alive() and enemy != primary_target and
+                self.unit.board.get_distance(self.unit, enemy) <= 3):
+                potential_targets.append(enemy)
+
+        if potential_targets:
+            knife_target = random.choice(potential_targets)
+            knife_damage = self.unit.attack_damage * 0.75
+            knife_target.take_damage(knife_damage, "physical", self.unit)
+
+
+class VenomousBlade(Item):
+    """Attacks apply poison"""
+    def __init__(self):
+        super().__init__("Venomous Blade", "Attacks apply poison (15 damage/s for 10s)", 35)
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            target = kwargs.get("target")
+            if target and target.is_alive():
+                from status_effect import PoisonEffect
+                poison = PoisonEffect(10.0, 15.0)
+                poison.source = self.unit
+                target.add_status_effect(poison)
+
+
+class CriticalEdge(Item):
+    """Every 4th attack deals triple damage"""
+    def __init__(self):
+        super().__init__("Critical Edge", "Every 4th attack deals 3x damage", 50)
+        self.attack_count = 0
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            self.attack_count += 1
+            if self.attack_count >= 4:
+                self.attack_count = 0
+                target = kwargs.get("target")
+                damage = kwargs.get("damage", 0)
+                if target and target.is_alive() and damage > 0:
+                    # Deal 2x extra damage (for 3x total)
+                    target.take_damage(damage * 2, "physical", self.unit)
+
+
 def create_item(item_name: str) -> Item:
     item_classes = {
         "frenzy_mask": FrenzyMask,
@@ -412,9 +640,20 @@ def create_item(item_name: str) -> Item:
         "red_waveblade": RedWaveblade,
         "blue_waveblade": BlueWaveblade,
         "negation_helm": NegationHelm,
-        "armor_of_time": ArmorOfTime
+        "armor_of_time": ArmorOfTime,
+        # New items (converted from unit upgrades)
+        "thunder_gloves": ThunderGloves,
+        "leap_boots": LeapBoots,
+        "armor_shredder": ArmorShredder,
+        "cleaving_blade": CleavingBlade,
+        "fire_staff": FireStaff,
+        "healing_blade": HealingBlade,
+        "cloak_of_shadows": CloakOfShadows,
+        "throwing_knives": ThrowingKnives,
+        "venomous_blade": VenomousBlade,
+        "critical_edge": CriticalEdge,
     }
-    
+
     item_class = item_classes.get(item_name.lower().replace(" ", "_"))
     if item_class:
         return item_class()
@@ -424,7 +663,7 @@ def create_item(item_name: str) -> Item:
 def get_all_items():
     return [
         "frenzy_mask",
-        "thrumblade", 
+        "thrumblade",
         "hammer_of_bam",
         "manastaff",
         "burnmail",
@@ -439,7 +678,18 @@ def get_all_items():
         "red_waveblade",
         "blue_waveblade",
         "negation_helm",
-        "armor_of_time"
+        "armor_of_time",
+        # New items
+        "thunder_gloves",
+        "leap_boots",
+        "armor_shredder",
+        "cleaving_blade",
+        "fire_staff",
+        "healing_blade",
+        "cloak_of_shadows",
+        "throwing_knives",
+        "venomous_blade",
+        "critical_edge",
     ]
 
 

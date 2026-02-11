@@ -4,7 +4,30 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from augment import Augment, UnitAugment, ItemAugment, PassiveAugment
 from content.items import create_item
+from unit import UnitType
 import random
+
+
+# Shop Entry Types (not augments - these are shop slots for characters)
+
+class CharacterShopEntry:
+    """A character available for purchase in the shop."""
+
+    def __init__(self, unit_type: UnitType, team=None):
+        self.unit_type = unit_type
+        self.team = team  # Reference to player team for dynamic cost
+        self.name = unit_type.name.replace("_", " ").title()
+        self.description = f"Purchase a {self.name}"
+
+    @property
+    def cost(self):
+        """Calculate cost dynamically based on current unit count."""
+        if self.team:
+            return self.team.get_unit_cost()
+        return 40  # Base cost if no team
+
+    def get_tooltip(self):
+        return f"{self.name}\nCost: {self.cost}\nCharacter"
 
 
 # Passive Augments
@@ -98,6 +121,156 @@ class GoldGenerationAugment(PassiveAugment):
         # This augment only makes sense for player teams
         if self.team and self.team.name == "player" and game:
             game.give_gold(10, bonus=True)
+
+
+# New Global Augments (converted from unit upgrades)
+
+class DefensiveAuraAugment(PassiveAugment):
+    """All allies gain armor and magic resist"""
+
+    def __init__(self):
+        super().__init__(
+            "Defensive Aura",
+            "All your units gain +50 armor and +50 magic resist",
+            50
+        )
+
+    def on_battle_start(self):
+        if self.team and self.team.board:
+            for unit in self.team.units:
+                if unit.is_alive():
+                    unit.armor += 50
+                    unit.magic_resist += 50
+
+
+class RegenerationFieldAugment(PassiveAugment):
+    """All allies passively heal over time"""
+
+    def __init__(self):
+        super().__init__(
+            "Regeneration Field",
+            "All your units heal 20 HP every 0.5 seconds",
+            45
+        )
+        self.tick_timer = 0
+        self.tick_interval = 0.5
+        self.heal_amount = 20
+
+    def on_frame(self, dt: float):
+        if not self.team or not self.team.board:
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            for unit in self.team.units:
+                if unit.is_alive():
+                    unit.heal(self.heal_amount, None)
+
+
+class FireResistanceAugment(PassiveAugment):
+    """All allies gain fire resistance"""
+
+    def __init__(self):
+        super().__init__(
+            "Fire Resistance",
+            "All your units gain +50 fire resistance",
+            35
+        )
+
+    def on_battle_start(self):
+        if self.team and self.team.board:
+            for unit in self.team.units:
+                if unit.is_alive():
+                    if not hasattr(unit, 'fire_resist'):
+                        unit.fire_resist = 0
+                    unit.fire_resist += 50
+
+
+class DeathsChillAugment(PassiveAugment):
+    """Enemy deaths deal ice damage to nearby enemies"""
+
+    def __init__(self):
+        super().__init__(
+            "Death's Chill",
+            "When an enemy dies, deal 10% of their max HP as ice damage to a random nearby enemy",
+            40
+        )
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "death" and "dying_unit" in kwargs:
+            dying_unit = kwargs["dying_unit"]
+            # Only trigger for enemy units
+            if self.team and dying_unit.team != self.team.name:
+                self.apply_chill(dying_unit)
+
+    def apply_chill(self, dying_unit):
+        import random
+        if not self.team or not self.team.board:
+            return
+
+        # Find enemies near the dying unit
+        enemy_team = "enemy" if self.team.name == "player" else "player"
+        nearby_enemies = self.team.board.get_units_in_range(dying_unit.x, dying_unit.y, 3, enemy_team)
+        nearby_enemies = [e for e in nearby_enemies if e != dying_unit and e.is_alive()]
+
+        if nearby_enemies:
+            target = random.choice(nearby_enemies)
+            damage = dying_unit.max_hp * 0.10
+            target.take_damage(damage, "magical", None)
+
+
+class PurificationAugment(PassiveAugment):
+    """Allies are cleansed of debuffs when healed"""
+
+    def __init__(self):
+        super().__init__(
+            "Purification",
+            "When any of your units is healed, cleanse all debuffs from them",
+            40
+        )
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "heal" and "target" in kwargs:
+            target = kwargs["target"]
+            if self.team and target.team == self.team.name:
+                self.cleanse_debuffs(target)
+
+    def cleanse_debuffs(self, unit):
+        debuffs_to_remove = []
+        for effect in unit.status_effects:
+            if hasattr(effect, 'is_debuff') and effect.is_debuff:
+                debuffs_to_remove.append(effect)
+        for debuff in debuffs_to_remove:
+            unit.remove_status_effect(debuff)
+
+
+class SoulHarvestAugment(PassiveAugment):
+    """Units heal when adjacent enemies die"""
+
+    def __init__(self):
+        super().__init__(
+            "Soul Harvest",
+            "Your units heal 400 HP when an adjacent enemy dies",
+            45
+        )
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "death" and "dying_unit" in kwargs:
+            dying_unit = kwargs["dying_unit"]
+            # Only trigger for enemy deaths
+            if self.team and dying_unit.team != self.team.name:
+                self.heal_nearby_allies(dying_unit)
+
+    def heal_nearby_allies(self, dying_unit):
+        if not self.team or not self.team.board:
+            return
+
+        for unit in self.team.units:
+            if unit.is_alive():
+                distance = self.team.board.get_distance(unit, dying_unit)
+                if distance <= 1:
+                    unit.heal(400, None)
 
 
 # Item Augments - wrap existing items
@@ -272,6 +445,108 @@ class ArmorOfTimeAugment(ItemAugment):
         )
 
 
+# New Item Augments (converted from unit upgrades)
+
+class ThunderGlovesAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Thunder Gloves",
+            "Item: +65 lightning damage on melee attacks",
+            45,
+            lambda: create_item("thunder_gloves")
+        )
+
+
+class LeapBootsAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Leap Boots",
+            "Item: On kill, leap to lowest HP enemy",
+            50,
+            lambda: create_item("leap_boots")
+        )
+
+
+class ArmorShredderAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Armor Shredder",
+            "Item: Attacks reduce target armor by 1",
+            40,
+            lambda: create_item("armor_shredder")
+        )
+
+
+class CleavingBladeAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Cleaving Blade",
+            "Item: Attacks hit 3 adjacent enemies",
+            55,
+            lambda: create_item("cleaving_blade")
+        )
+
+
+class FireStaffAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Fire Staff",
+            "Item: Attacks deal +INT fire damage",
+            45,
+            lambda: create_item("fire_staff")
+        )
+
+
+class HealingBladeAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Healing Blade",
+            "Item: On hit, heal nearest ally 50 HP",
+            50,
+            lambda: create_item("healing_blade")
+        )
+
+
+class CloakOfShadowsAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Cloak of Shadows",
+            "Item: Gain 1 dodge every 2 seconds",
+            55,
+            lambda: create_item("cloak_of_shadows")
+        )
+
+
+class ThrowingKnivesAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Throwing Knives",
+            "Item: Attacks hit another random enemy",
+            40,
+            lambda: create_item("throwing_knives")
+        )
+
+
+class VenomousBladeAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Venomous Blade",
+            "Item: Attacks apply poison",
+            35,
+            lambda: create_item("venomous_blade")
+        )
+
+
+class CriticalEdgeAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Critical Edge",
+            "Item: Every 4th attack deals 3x damage",
+            50,
+            lambda: create_item("critical_edge")
+        )
+
+
 # Rare Unit Augments
 
 class DragonAugment(UnitAugment):
@@ -292,14 +567,21 @@ class DragonAugment(UnitAugment):
 def get_all_augment_types():
     """Returns a list of all augment class constructors"""
     return [
-        # Passive augments
+        # Passive augments (original)
         AttackBoostAugment,
         HealthBoostAugment,
         ArmorBoostAugment,
         AttackSpeedBoostAugment,
         GoldGenerationAugment,
-        
-        # Item augments
+        # New global augments
+        DefensiveAuraAugment,
+        RegenerationFieldAugment,
+        FireResistanceAugment,
+        DeathsChillAugment,
+        PurificationAugment,
+        SoulHarvestAugment,
+
+        # Item augments (original)
         FrenzyMaskAugment,
         ThrumbladeAugment,
         HammerOfBamAugment,
@@ -317,16 +599,128 @@ def get_all_augment_types():
         BlueWavebladeAugment,
         NegationHelmAugment,
         ArmorOfTimeAugment,
-        
+        # New item augments
+        ThunderGlovesAugment,
+        LeapBootsAugment,
+        ArmorShredderAugment,
+        CleavingBladeAugment,
+        FireStaffAugment,
+        HealingBladeAugment,
+        CloakOfShadowsAugment,
+        ThrowingKnivesAugment,
+        VenomousBladeAugment,
+        CriticalEdgeAugment,
+
         # Rare unit augments
         DragonAugment
     ]
 
 
-def generate_augment_shop(count: int = 5) -> list:
-    """Generate a random shop of augments"""
+def get_all_passive_augment_types():
+    """Returns only passive augment types (for random slot generation)."""
+    return [
+        AttackBoostAugment,
+        HealthBoostAugment,
+        ArmorBoostAugment,
+        AttackSpeedBoostAugment,
+        GoldGenerationAugment,
+        # New global augments
+        DefensiveAuraAugment,
+        RegenerationFieldAugment,
+        FireResistanceAugment,
+        DeathsChillAugment,
+        PurificationAugment,
+        SoulHarvestAugment,
+    ]
+
+
+def get_all_item_augment_types():
+    """Returns only item augment types."""
+    return [
+        FrenzyMaskAugment,
+        ThrumbladeAugment,
+        HammerOfBamAugment,
+        ManastaffAugment,
+        BurnmailAugment,
+        ScorpionTailAugment,
+        PhylacteryAugment,
+        SundererAugment,
+        BeastheartAugment,
+        PhantomSaberAugment,
+        SnowGlobeAugment,
+        EchostoneAugment,
+        OminstoneAugment,
+        RedWavebladeAugment,
+        BlueWavebladeAugment,
+        NegationHelmAugment,
+        ArmorOfTimeAugment,
+        # New item augments
+        ThunderGlovesAugment,
+        LeapBootsAugment,
+        ArmorShredderAugment,
+        CleavingBladeAugment,
+        FireStaffAugment,
+        HealingBladeAugment,
+        CloakOfShadowsAugment,
+        ThrowingKnivesAugment,
+        VenomousBladeAugment,
+        CriticalEdgeAugment,
+    ]
+
+
+def generate_augment_shop(team=None, count: int = 10) -> list:
+    """Generate a 10-slot shop with the new slot rules.
+
+    Slots 0-1: Always characters
+    Slot 2: Always an item
+    Slots 3-9: Random (15% char, 30% item, 45% augment, 10% rare unit)
+    """
+    from content.unit_registry import get_available_units
+
+    shop = []
+
+    # Helper to generate a character entry
+    # Cost is calculated dynamically based on team's current unit count
+    def gen_character():
+        unit_type = random.choice(get_available_units())
+        return CharacterShopEntry(unit_type, team)
+
+    # Helper to generate an item entry
+    def gen_item():
+        item_types = get_all_item_augment_types()
+        return random.choice(item_types)()
+
+    # Helper to generate a passive augment
+    def gen_augment():
+        augment_types = get_all_passive_augment_types()
+        return random.choice(augment_types)()
+
+    # Slots 0-1: Always characters
+    for _ in range(2):
+        shop.append(gen_character())
+
+    # Slot 2: Always an item
+    shop.append(gen_item())
+
+    # Slots 3-9: Random with weights (15% char, 30% item, 45% augment, 10% rare)
+    for _ in range(7):
+        roll = random.random()
+        if roll < 0.15:  # 15% character
+            shop.append(gen_character())
+        elif roll < 0.45:  # 30% item
+            shop.append(gen_item())
+        elif roll < 0.90:  # 45% passive augment
+            shop.append(gen_augment())
+        else:  # 10% rare unit augment (dragon, etc)
+            shop.append(DragonAugment())
+
+    return shop
+
+
+def generate_augment_shop_legacy(count: int = 5) -> list:
+    """Legacy shop generation for enemy teams."""
     all_augment_types = get_all_augment_types()
-    
+
     # Weight different augment types
     weights = []
     for augment_type in all_augment_types:
@@ -338,7 +732,7 @@ def generate_augment_shop(count: int = 5) -> list:
             weights.append(1)  # Rare
         else:
             weights.append(2)  # Default
-    
+
     # Select random augments
     selected_types = random.choices(all_augment_types, weights=weights, k=count)
     return [augment_type() for augment_type in selected_types]

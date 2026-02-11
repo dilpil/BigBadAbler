@@ -1,15 +1,22 @@
 This is an autobattler.
 
-However, instead of being based on high randomness and variance, the player is given the opportunity to build a team from whatever units and abilities they want, with the only source of randomness being the item shop.
+However, instead of being based on high randomness and variance, the player must adapt to the circumstances presented by the shop.
 
 ### Progression
 
-Each round the player gets 200 gold to spend on characters, items, and abilities.
-The player can always purchase any character or ability each round.
-Items however, must be purchased from a rotating shop- the shop has a different set of 10 items available for purchase each round.
-Each character has a unique starting ability and a pool of 10-20 abilities that can be purchased for it.  Some buyable abilities are available to multiple units.
+Each round the player gets gold to spend on characters, items, abilities, and augments.
+All purchases come from a rotating 10-slot shop that refreshes each round.
+
+**Shop Slot Distribution:**
+- Slots 1-2: Always characters
+- Slot 3: Always an item
+- Slots 4-10: Random (15% character, 20% item, 20% ability upgrade, 35% augment)
+
+The shop can be rerolled for 20 gold.
+Each character has a unique starting ability and a pool of abilities that can appear in the shop.
 Characters have a maximum of 5 abilities and 3 items.
 Items can be moved between characters each round, abilities cannot.
+Upgrades can be purchased even without a valid unit - they are stored as "pending" until a valid unit is acquired.
 
 The player starts with 5 lives.  Losing a round subtracts 1 life.
 Losing all lives results in a defeat.
@@ -131,10 +138,24 @@ Visual logic should be entirely contained in PyUI.py.
 The color palette of the game is based on a synthwave/vaporwave aesthetic, with purple, pink, reds, and blues being the most common colors.
 
 # Shopping Visuals
-During the shopping phase, the player can click on an empty board slot to open the character shop.  This displays all available units in a grid.  Clicking one will purchase it, closing the character shop, and placing that character at the slot which was clicked.
-Clicking a unit will open the ability shop for that unit, which looks similar to the character shop, but is populated with all available abilities for that unit.  Clicking an ability buys it and closes the ability shop.
-During the shopping phase, the area beneath the board is devoted to the item shop.  The items and their prices are lined up horizontally.  Items can be purchased by dragging them onto characters.
-Items, characters, and abilities that cannot be purchased, either due to lack of funds or lack of slots, are greyed out and cannot be dragged.
+During the shopping phase, the bottom panel displays the 10-slot shop.
+
+**Shop Entry Types:**
+- Characters: Colored with unit type color, first letter of unit name
+- Items: Blue color, "I" letter
+- Upgrades: Magenta color, "S" letter
+- Augments: Purple color, "A" letter
+- Rare Units: Gold color, "U" letter
+
+**Purchasing Flow:**
+- Click a character entry, then click an empty board tile to place it
+- Click an upgrade entry, then click a valid unit to apply it (or it becomes pending)
+- Click an item entry to add it to unequipped items, then click a unit to equip
+- Click an augment entry to purchase it directly
+
+A Reroll button in the shop panel allows refreshing all 10 slots for 20 gold.
+Clicking a placed unit opens the upgrade shop to view/manage its abilities and items.
+Items, characters, and abilities that cannot be purchased due to lack of funds are greyed out.
 
 # Combat Visuals
 

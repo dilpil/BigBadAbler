@@ -1,17 +1,25 @@
 from typing import Dict, Optional
 from constants import FRAME_TIME
+from enum import Enum
+
+
+class StackType(Enum):
+    STACK_DURATION = "stack_duration"  # Refresh/extend duration when stacking
+    STACK_INTENSITY = "stack_intensity"  # Increase intensity/power when stacking
 
 class StatusEffect:
-    def __init__(self, name: str, duration: Optional[float]):
+    def __init__(self, name: str, duration: Optional[float], stack_type: StackType = StackType.STACK_DURATION):
         self.name = name
         self.duration = duration
         self.remaining_duration = duration
         self.unit = None
         self.source = None
-        
+        self.stack_type = stack_type
+        self.stacks = 1
+
         self.tick_interval = 0.5
         self.tick_timer = 0
-        
+
         self.stat_modifiers = {}
         
     def apply(self, unit):
@@ -41,8 +49,8 @@ class StatusEffect:
 
 
 class DamageOverTimeEffect(StatusEffect):
-    def __init__(self, name: str, duration: Optional[float], damage_per_tick: float, damage_type: str = "magical"):
-        super().__init__(name, duration)
+    def __init__(self, name: str, duration: Optional[float], damage_per_tick: float, damage_type: str = "magical", stack_type: StackType = StackType.STACK_DURATION):
+        super().__init__(name, duration, stack_type)
         self.damage_per_tick = damage_per_tick
         self.damage_type = damage_type
         
@@ -52,8 +60,8 @@ class DamageOverTimeEffect(StatusEffect):
 
 
 class HealOverTimeEffect(StatusEffect):
-    def __init__(self, name: str, duration: float, heal_per_tick: float):
-        super().__init__(name, duration)
+    def __init__(self, name: str, duration: float, heal_per_tick: float, stack_type: StackType = StackType.STACK_DURATION):
+        super().__init__(name, duration, stack_type)
         self.heal_per_tick = heal_per_tick
         
     def on_tick(self):
@@ -62,8 +70,8 @@ class HealOverTimeEffect(StatusEffect):
 
 
 class StatModifierEffect(StatusEffect):
-    def __init__(self, name: str, duration: Optional[float], stat_changes: Dict[str, float]):
-        super().__init__(name, duration)
+    def __init__(self, name: str, duration: Optional[float], stat_changes: Dict[str, float], stack_type: StackType = StackType.STACK_DURATION):
+        super().__init__(name, duration, stack_type)
         self.stat_modifiers = stat_changes
         
     def apply(self, unit):
@@ -81,8 +89,12 @@ class StatModifierEffect(StatusEffect):
 
 class PoisonEffect(DamageOverTimeEffect):
     def __init__(self, duration: Optional[float] = None, damage: float = 5.0):
-        super().__init__("Poison", duration, damage, "magical")
+        super().__init__("Poison", duration, damage, "magical", StackType.STACK_INTENSITY)
         self.tick_interval = 5 * FRAME_TIME
+
+    def on_tick(self):
+        if self.unit and self.unit.is_alive():
+            self.unit.take_damage(self.damage_per_tick * self.stacks, self.damage_type, self.source)
 
 
 class WeaknessEffect(StatModifierEffect):

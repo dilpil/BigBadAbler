@@ -85,7 +85,18 @@ class Game:
     
     def generate_augment_shop(self):
         from content.augments import generate_augment_shop
-        self.augment_shop = generate_augment_shop(5)
+        self.augment_shop = generate_augment_shop(self.player_team, 10)
+
+    def reroll_shop(self, cost: int = 20) -> bool:
+        """Reroll the shop for a gold cost."""
+        if self.gold < cost:
+            return False
+        self.gold -= cost
+        self.generate_augment_shop()
+        self.add_message(f"Rerolled shop for {cost} gold")
+        if hasattr(self, 'ui') and self.ui:
+            self.ui.play_sound('buy')
+        return True
     
     def purchase_unit(self, unit_type: UnitType, x: int, y: int) -> bool:
         cost = self.player_team.get_unit_cost()
@@ -160,31 +171,69 @@ class Game:
         return False
     
     def purchase_augment(self, augment_index: int) -> bool:
-        """Purchase an augment from the shop"""
+        """Purchase an augment from the shop (for traditional augments like PassiveAugment, ItemAugment, UnitAugment)"""
+        from content.augments import CharacterShopEntry
+
         if augment_index >= len(self.augment_shop):
             return False
-            
-        augment = self.augment_shop[augment_index]
-        
-        if self.gold < augment.cost:
+
+        entry = self.augment_shop[augment_index]
+
+        # Handle new shop entry types differently
+        if isinstance(entry, CharacterShopEntry):
+            # CharacterShopEntry is handled by purchase_character_entry
             return False
-            
+
+        # Traditional augment handling
+        if self.gold < entry.cost:
+            return False
+
         # Set the augment's team to player team
-        augment.team = self.player_team
-        
+        entry.team = self.player_team
+
         # Try to buy the augment
-        if augment.on_buy(self.player_team):
-            self.gold -= augment.cost
-            self.player_team.add_augment(augment)
+        if entry.on_buy(self.player_team):
+            self.gold -= entry.cost
+            self.player_team.add_augment(entry)
             self.augment_shop.pop(augment_index)
-            self.add_message(f"Purchased {augment.name} for {augment.cost} gold")
+            self.add_message(f"Purchased {entry.name} for {entry.cost} gold")
             # Play purchase sound
             if hasattr(self, 'ui') and self.ui:
                 self.ui.play_sound('buy')
             return True
-            
+
         return False
-    
+
+    def purchase_character_entry(self, augment_index: int, x: int, y: int) -> bool:
+        """Purchase a character from the shop and place it on the board."""
+        from content.augments import CharacterShopEntry
+
+        if augment_index >= len(self.augment_shop):
+            return False
+
+        entry = self.augment_shop[augment_index]
+        if not isinstance(entry, CharacterShopEntry):
+            return False
+
+        if self.gold < entry.cost:
+            return False
+
+        # Create and place the unit
+        unit = self.create_unit(entry.unit_type)
+        if not unit:
+            return False
+
+        if self.player_team.add_unit(unit, x, y):
+            self.gold -= entry.cost
+            self.player_team.units_purchased += 1
+            self.augment_shop.pop(augment_index)
+            self.add_message(f"Purchased {unit.name} for {entry.cost} gold")
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.play_sound('buy')
+            return True
+
+        return False
+
     def purchase_item(self, item_name: str, unit: Unit) -> bool:
         """Legacy method for direct item purchases (kept for compatibility)"""
         # Check unequipped items first
@@ -255,16 +304,69 @@ class Game:
             self.paused = True
     
     def position_enemy_units(self):
-        for i, unit in enumerate(self.enemy_team.units):
-            # Position enemies on the right side of the 8x8 board (x=6-7)
-            x = 6 + (i % 2)
-            y = 1 + (i // 2)
-            # Ensure we don't exceed board boundaries
-            if y >= 8:
-                y = 7
-            
+        """Position enemy units on the board using strategic positioning."""
+        positions = self._generate_strategic_positions(self.enemy_team.units)
+        for unit, (x, y) in zip(self.enemy_team.units, positions):
             unit.original_x = x
             unit.original_y = y
+
+    def _generate_strategic_positions(self, units):
+        """Generate strategic positions with ranged units in back and melee in front.
+
+        Args:
+            units: List of units to position
+
+        Returns:
+            List of (x, y) tuples for each unit
+        """
+        if not units:
+            return []
+
+        # Separate units by role
+        melee_units = [unit for unit in units if unit.attack_range <= 1]
+        ranged_units = [unit for unit in units if unit.attack_range > 1]
+
+        # Shuffle for variety
+        random.shuffle(melee_units)
+        random.shuffle(ranged_units)
+
+        # Define available positions: front rows (x=4-5) and back rows (x=6-7)
+        # y ranges from 0 to 7 (8 rows total)
+        front_positions = [(x, y) for x in [4, 5] for y in range(8)]
+        back_positions = [(x, y) for x in [6, 7] for y in range(8)]
+
+        # Shuffle positions for variety
+        random.shuffle(front_positions)
+        random.shuffle(back_positions)
+
+        # Assign positions to units
+        unit_positions = {}
+        ranged_idx = 0
+        melee_idx = 0
+
+        # Position ranged units in back rows first
+        for unit in ranged_units:
+            if ranged_idx < len(back_positions):
+                unit_positions[id(unit)] = back_positions[ranged_idx]
+                ranged_idx += 1
+            elif melee_idx + len(melee_units) < len(front_positions):
+                # Use leftover front positions if back is full
+                overflow_idx = melee_idx + len(melee_units)
+                unit_positions[id(unit)] = front_positions[overflow_idx]
+                melee_idx += 1
+
+        # Position melee units in front rows
+        for unit in melee_units:
+            if melee_idx < len(front_positions):
+                unit_positions[id(unit)] = front_positions[melee_idx]
+                melee_idx += 1
+            elif ranged_idx < len(back_positions):
+                # Use remaining back positions if front is full
+                unit_positions[id(unit)] = back_positions[ranged_idx]
+                ranged_idx += 1
+
+        # Return positions in original unit order
+        return [unit_positions.get(id(unit), (6, 0)) for unit in units]
     
     def update_combat(self, dt: float):
         if self.phase == GamePhase.COMBAT:

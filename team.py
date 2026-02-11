@@ -13,7 +13,7 @@ class Team:
         self.augments = []  # All augments owned by this team
         self.passive_augments = []  # Just passive augments for combat effects
         self.unequipped_items = []  # Items not currently equipped to units
-        
+
         # Team stats
         self.units_purchased = 0  # Track for escalating unit costs
         
@@ -235,7 +235,7 @@ class Team:
     
     def generate_enemy_team(self, budget: int = 120, game=None):
         """Generate an enemy team by randomly buying units, passives, and augments until budget is exhausted."""
-        from content.augments import generate_augment_shop
+        from content.augments import generate_augment_shop_legacy
         import random
         
         if self.name != "enemy":
@@ -248,7 +248,7 @@ class Team:
         self.clear()
         
         # Generate augment pool once for the enemy to choose from
-        self.enemy_augment_pool = generate_augment_shop(20)
+        self.enemy_augment_pool = generate_augment_shop_legacy(20)
         random.shuffle(self.enemy_augment_pool)
         
         remaining_budget = budget
