@@ -309,6 +309,8 @@ class Game:
         for unit, (x, y) in zip(self.enemy_team.units, positions):
             unit.original_x = x
             unit.original_y = y
+            # Also move the unit on the board to the new position
+            self.board.move_unit(unit, x, y)
 
     def _generate_strategic_positions(self, units):
         """Generate strategic positions with ranged units in back and melee in front.
@@ -326,44 +328,34 @@ class Game:
         melee_units = [unit for unit in units if unit.attack_range <= 1]
         ranged_units = [unit for unit in units if unit.attack_range > 1]
 
-        # Shuffle for variety
-        random.shuffle(melee_units)
-        random.shuffle(ranged_units)
-
-        # Define available positions: front rows (x=4-5) and back rows (x=6-7)
-        # y ranges from 0 to 7 (8 rows total)
-        front_positions = [(x, y) for x in [4, 5] for y in range(8)]
-        back_positions = [(x, y) for x in [6, 7] for y in range(8)]
-
-        # Shuffle positions for variety
-        random.shuffle(front_positions)
-        random.shuffle(back_positions)
-
-        # Assign positions to units
+        used_positions = set()
         unit_positions = {}
-        ranged_idx = 0
-        melee_idx = 0
 
-        # Position ranged units in back rows first
-        for unit in ranged_units:
-            if ranged_idx < len(back_positions):
-                unit_positions[id(unit)] = back_positions[ranged_idx]
-                ranged_idx += 1
-            elif melee_idx + len(melee_units) < len(front_positions):
-                # Use leftover front positions if back is full
-                overflow_idx = melee_idx + len(melee_units)
-                unit_positions[id(unit)] = front_positions[overflow_idx]
-                melee_idx += 1
+        def get_random_position(x_options):
+            """Get a random unused position from the given x columns."""
+            attempts = 0
+            while attempts < 100:
+                x = random.choice(x_options)
+                y = random.randint(0, 7)
+                if (x, y) not in used_positions:
+                    used_positions.add((x, y))
+                    return (x, y)
+                attempts += 1
+            # Fallback: find any available position
+            for x in x_options:
+                for y in range(8):
+                    if (x, y) not in used_positions:
+                        used_positions.add((x, y))
+                        return (x, y)
+            return (x_options[0], 0)
 
-        # Position melee units in front rows
+        # Position melee units in front rows (x=4-5)
         for unit in melee_units:
-            if melee_idx < len(front_positions):
-                unit_positions[id(unit)] = front_positions[melee_idx]
-                melee_idx += 1
-            elif ranged_idx < len(back_positions):
-                # Use remaining back positions if front is full
-                unit_positions[id(unit)] = back_positions[ranged_idx]
-                ranged_idx += 1
+            unit_positions[id(unit)] = get_random_position([4, 5])
+
+        # Position ranged units in back rows (x=6-7)
+        for unit in ranged_units:
+            unit_positions[id(unit)] = get_random_position([6, 7])
 
         # Return positions in original unit order
         return [unit_positions.get(id(unit), (6, 0)) for unit in units]
