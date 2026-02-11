@@ -883,8 +883,8 @@ class PyUI:
 
         # Draw middle divider
         mid_x = self.board_x + 4 * self.tile_size
-        pygame.draw.line(self.screen, self.colors['player_border'],
-                       (mid_x, self.board_y), (mid_x, self.board_y + board_height), 3)
+        pygame.draw.line(self.screen, (128, 0, 255),
+                       (mid_x, self.board_y), (mid_x, self.board_y + board_height), 5)
                                
     
     def draw_units(self):

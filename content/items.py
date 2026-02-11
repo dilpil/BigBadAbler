@@ -184,13 +184,22 @@ class Phylactery(Item):
         self.triggered = False
         
     def on_event(self, event_type: str, **kwargs):
-        if event_type == "damage_taken" and kwargs.get("target") == self.unit:
+        if event_type == "damage_taken" and kwargs.get("unit") == self.unit:
             if not self.triggered and self.unit.hp <= self.unit.max_hp * 0.5:
                 self.triggered = True
-                # Cleanse all debuffs
+                # Cleanse all debuffs (properly remove to revert stat modifiers)
+                for effect in self.unit.status_effects[:]:
+                    effect.remove(self.unit)
                 self.unit.status_effects.clear()
                 # Heal to full
+                old_hp = self.unit.hp
                 self.unit.hp = self.unit.max_hp
+                # Visual feedback
+                self.unit.flash_color = (0, 255, 0)
+                self.unit.flash_timer = 0.3
+                self.unit.flash_duration = 0.3
+                if self.unit.board:
+                    self.unit.board.make_text_floater("Phylactery!", (255, 215, 0), unit=self.unit)
 
 
 class Sunderer(Item):
