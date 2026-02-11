@@ -474,9 +474,9 @@ class Unit:
         self.heal_anim_timer = 0.0
         self.status_effects.clear()
         
-        # Reset spell mana to full
+        # Reset spell mana to 0
         if self.spell:
-            self.spell.current_mana = self.spell.mana_cost
+            self.spell.current_mana = 0
             
         # Reset passive skills (they don't have mana but may need reset)
         for passive in self.passive_skills:
@@ -517,7 +517,7 @@ class Unit:
         self.spell = spell
         if spell:
             spell.owner = self
-            spell.current_mana = spell.mana_cost  # Start with full mana
+            spell.current_mana = 0  # Start with 0 mana
         return True
     
     def add_passive_skill(self, skill):
