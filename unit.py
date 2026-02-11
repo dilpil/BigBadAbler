@@ -16,6 +16,11 @@ class UnitType(Enum):
     CLERIC = "cleric"
     ASSASSIN = "assassin"
     SKELETON = "skeleton"
+    MAGIC_KNIGHT = "magic_knight"
+    WIZARD = "wizard"
+    OGRE_SHAMAN = "ogre_shaman"
+    YETI = "yeti"
+    SLIME = "slime"
 
 class PassiveSkill(Enum):
     # Necromancer passives
@@ -69,6 +74,31 @@ class PassiveSkill(Enum):
     AETHER_SWAP = "aether_swap"
     SOUL_REAPING = "soul_reaping"
     CRIT = "crit"
+
+    # Magic Knight passives
+    MIRROR_IMAGE = "mirror_image"
+    ARCANE_BLADE = "arcane_blade"
+    SPELL_SHIELD = "spell_shield"
+
+    # Wizard passives
+    FIRE_SPLASH = "fire_splash"
+    CHAIN_MASTERY = "chain_mastery"
+    ARCANE_POWER = "arcane_power"
+
+    # Ogre Shaman passives
+    BLOOD_BOND = "blood_bond"
+    WAR_DRUMS = "war_drums"
+    TRIBAL_MIGHT = "tribal_might"
+
+    # Yeti passives
+    FROST_AURA = "frost_aura"
+    PERMAFROST = "permafrost"
+    ICY_TOUCH = "icy_touch"
+
+    # Slime passives
+    SPLIT = "split"
+    TOXIC_BODY = "toxic_body"
+    REGENERATE = "regenerate"
 
 class Unit:
     _next_id = 0

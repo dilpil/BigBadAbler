@@ -45,7 +45,70 @@ def create_skill(skill_name) -> Skill:
             return skill
     except ImportError:
         pass
-    
+
+    # Try cleric skills
+    try:
+        from content.units.cleric import create_cleric_skill
+        skill = create_cleric_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try assassin skills
+    try:
+        from content.units.assassin import create_assassin_skill
+        skill = create_assassin_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try magic knight skills
+    try:
+        from content.units.magic_knight import create_magic_knight_skill
+        skill = create_magic_knight_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try wizard skills
+    try:
+        from content.units.wizard import create_wizard_skill
+        skill = create_wizard_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try ogre shaman skills
+    try:
+        from content.units.ogre_shaman import create_ogre_shaman_skill
+        skill = create_ogre_shaman_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try yeti skills
+    try:
+        from content.units.yeti import create_yeti_skill
+        skill = create_yeti_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
+    # Try slime skills
+    try:
+        from content.units.slime import create_slime_skill
+        skill = create_slime_skill(skill_name)
+        if skill:
+            return skill
+    except ImportError:
+        pass
+
     return None
 
 def get_skill_cost(skill_name: str) -> int:

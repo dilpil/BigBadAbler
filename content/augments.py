@@ -332,6 +332,235 @@ class SoulHarvestAugment(PassiveAugment):
                     unit.heal(400, None)
 
 
+# ===== NEW PASSIVE AUGMENTS =====
+
+class FlatHealthAugment(PassiveAugment):
+    """All units get +250 HP"""
+
+    def __init__(self):
+        super().__init__(
+            "Fortitude",
+            "All your units gain +250 max HP",
+            35
+        )
+
+    def apply_to_unit(self, unit):
+        if unit.is_alive():
+            has_effect = any(e.name == "Fortitude" for e in unit.status_effects)
+            if has_effect:
+                return
+            effect = StatModifierEffect(
+                "Fortitude",
+                duration=None,
+                stat_changes={"max_hp": 250}
+            )
+            effect.source = self
+            unit.add_status_effect(effect)
+            unit.hp = min(unit.hp + 250, unit.max_hp)
+
+    def on_buy(self, team):
+        super().on_buy(team)
+        for unit in team.units:
+            self.apply_to_unit(unit)
+        return True
+
+
+class KnightSynergyAugment(PassiveAugment):
+    """All units get +10 armor and +10 MR for each Magic Knight you control"""
+
+    def __init__(self):
+        super().__init__(
+            "Knight's Order",
+            "All units gain +10 armor and +10 MR for each Magic Knight you control",
+            45
+        )
+
+    def on_battle_start(self):
+        if not self.team:
+            return
+        # Count magic knights
+        knight_count = sum(1 for u in self.team.units if u.unit_type.value == "magic_knight")
+        if knight_count == 0:
+            return
+
+        bonus = knight_count * 10
+        for unit in self.team.units:
+            if unit.is_alive():
+                effect = StatModifierEffect(
+                    "Knight's Order",
+                    duration=None,
+                    stat_changes={"armor": bonus, "magic_resist": bonus}
+                )
+                effect.source = self
+                unit.add_status_effect(effect)
+
+
+class WizardSynergyAugment(PassiveAugment):
+    """All units get +1 MP/s for each Wizard you control"""
+
+    def __init__(self):
+        super().__init__(
+            "Arcane Resonance",
+            "All units gain +1 MP/s for each Wizard you control",
+            40
+        )
+
+    def on_battle_start(self):
+        if not self.team:
+            return
+        # Count wizards
+        wizard_count = sum(1 for u in self.team.units if u.unit_type.value == "wizard")
+        if wizard_count == 0:
+            return
+
+        bonus = wizard_count
+        for unit in self.team.units:
+            if unit.is_alive():
+                unit.mp_regen += bonus
+
+
+class FormationAugment(PassiveAugment):
+    """Front row units get +50% HP, back row units get +50% intelligence"""
+
+    def __init__(self):
+        super().__init__(
+            "Battle Formation",
+            "Front row (x<2) units get +50% HP, back row (x>=2) units get +50% intelligence",
+            50
+        )
+
+    def on_battle_start(self):
+        if not self.team:
+            return
+
+        for unit in self.team.units:
+            if not unit.is_alive():
+                continue
+
+            if unit.x < 2:  # Front row
+                hp_bonus = int(unit.max_hp * 0.5)
+                effect = StatModifierEffect(
+                    "Front Line",
+                    duration=None,
+                    stat_changes={"max_hp": hp_bonus}
+                )
+                effect.source = self
+                unit.add_status_effect(effect)
+                unit.hp = min(unit.hp + hp_bonus, unit.max_hp)
+            else:  # Back row
+                int_bonus = int(unit.intelligence * 0.5)
+                if int_bonus < 15:
+                    int_bonus = 15  # Minimum bonus
+                effect = StatModifierEffect(
+                    "Back Line",
+                    duration=None,
+                    stat_changes={"intelligence": int_bonus}
+                )
+                effect.source = self
+                unit.add_status_effect(effect)
+
+
+class ScalingDamageAugment(PassiveAugment):
+    """Each second, all units gain +1 attack damage"""
+
+    def __init__(self):
+        super().__init__(
+            "Growing Power",
+            "Each second, all your units gain +1 attack damage",
+            40
+        )
+        self.tick_timer = 0
+        self.tick_interval = 1.0
+
+    def on_frame(self, dt: float):
+        if not self.team:
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            for unit in self.team.units:
+                if unit.is_alive():
+                    unit.attack_damage += 1
+
+
+class ScalingDefenseAugment(PassiveAugment):
+    """Each second, all units gain +1 armor and +1 magic resist"""
+
+    def __init__(self):
+        super().__init__(
+            "Hardening",
+            "Each second, all your units gain +1 armor and +1 magic resist",
+            40
+        )
+        self.tick_timer = 0
+        self.tick_interval = 1.0
+
+    def on_frame(self, dt: float):
+        if not self.team:
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            for unit in self.team.units:
+                if unit.is_alive():
+                    unit.armor += 1
+                    unit.magic_resist += 1
+
+
+class GlobalRegenAugment(PassiveAugment):
+    """All units heal for 1% of max HP per second"""
+
+    def __init__(self):
+        super().__init__(
+            "Life Force",
+            "All your units heal for 1% of their max HP every second",
+            45
+        )
+        self.tick_timer = 0
+        self.tick_interval = 1.0
+
+    def on_frame(self, dt: float):
+        if not self.team:
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            for unit in self.team.units:
+                if unit.is_alive():
+                    heal_amount = unit.max_hp * 0.01
+                    unit.heal(heal_amount, None)
+
+
+class LowestHPHealAugment(PassiveAugment):
+    """Lowest HP unit heals for 3% of max HP per second"""
+
+    def __init__(self):
+        super().__init__(
+            "Guardian Angel",
+            "Your lowest HP unit heals for 3% of their max HP every second",
+            40
+        )
+        self.tick_timer = 0
+        self.tick_interval = 1.0
+
+    def on_frame(self, dt: float):
+        if not self.team:
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            # Find lowest HP unit (by percentage)
+            living_units = [u for u in self.team.units if u.is_alive()]
+            if living_units:
+                lowest = min(living_units, key=lambda u: u.hp / u.max_hp)
+                heal_amount = lowest.max_hp * 0.03
+                lowest.heal(heal_amount, None)
+
+
 # Item Augments - wrap existing items
 
 class FrenzyMaskAugment(ItemAugment):
@@ -606,6 +835,26 @@ class CriticalEdgeAugment(ItemAugment):
         )
 
 
+class BasiliskHammerAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Basilisk Hammer",
+            "Item: On attack deal damage = target's armor + MR",
+            55,
+            lambda: create_item("basilisk_hammer")
+        )
+
+
+class FrostyCloakAugment(ItemAugment):
+    def __init__(self):
+        super().__init__(
+            "Frosty Cloak",
+            "Item: Enemies within 3 tiles are chilled",
+            50,
+            lambda: create_item("frosty_cloak")
+        )
+
+
 # Rare Unit Augments
 
 class DragonAugment(UnitAugment):
@@ -638,6 +887,15 @@ def get_all_augment_types():
         DeathsChillAugment,
         PurificationAugment,
         SoulHarvestAugment,
+        # Additional new augments
+        FlatHealthAugment,
+        KnightSynergyAugment,
+        WizardSynergyAugment,
+        FormationAugment,
+        ScalingDamageAugment,
+        ScalingDefenseAugment,
+        GlobalRegenAugment,
+        LowestHPHealAugment,
 
         # Item augments (original)
         FrenzyMaskAugment,
@@ -668,6 +926,8 @@ def get_all_augment_types():
         ThrowingKnivesAugment,
         VenomousBladeAugment,
         CriticalEdgeAugment,
+        BasiliskHammerAugment,
+        FrostyCloakAugment,
 
         # Rare unit augments
         DragonAugment
@@ -688,6 +948,15 @@ def get_all_passive_augment_types():
         DeathsChillAugment,
         PurificationAugment,
         SoulHarvestAugment,
+        # Additional new augments
+        FlatHealthAugment,
+        KnightSynergyAugment,
+        WizardSynergyAugment,
+        FormationAugment,
+        ScalingDamageAugment,
+        ScalingDefenseAugment,
+        GlobalRegenAugment,
+        LowestHPHealAugment,
     ]
 
 
@@ -722,6 +991,8 @@ def get_all_item_augment_types():
         ThrowingKnivesAugment,
         VenomousBladeAugment,
         CriticalEdgeAugment,
+        BasiliskHammerAugment,
+        FrostyCloakAugment,
     ]
 
 

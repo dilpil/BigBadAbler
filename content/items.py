@@ -639,6 +639,58 @@ class CriticalEdge(Item):
                     target.take_damage(damage * 2, "physical", self.unit)
 
 
+class BasiliskHammer(Item):
+    """On attack, deal physical damage equal to target's armor + resist"""
+    def __init__(self):
+        super().__init__("Basilisk Hammer", "On attack: deal physical damage equal to target's armor + magic resist", 55)
+        self.stats = {"attack_damage": 15}
+
+    def on_event(self, event_type: str, **kwargs):
+        if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
+            target = kwargs.get("target")
+            if target and target.is_alive():
+                bonus_damage = target.armor + target.magic_resist
+                if bonus_damage > 0:
+                    target.take_damage(bonus_damage, "physical", self.unit)
+
+
+class FrostyCloak(Item):
+    """Enemies within 3 tiles are chilled (reduced attack speed and move speed)"""
+    def __init__(self):
+        super().__init__("Frosty Cloak", "Enemies within 3 tiles are chilled (-15% attack speed, -20% move speed)", 50)
+        self.stats = {"armor": 20, "magic_resist": 20}
+        self.tick_timer = 0
+        self.tick_interval = 1.0
+        self.range = 3
+
+    def on_frame(self, dt: float):
+        if not self.unit or not self.unit.board or not self.unit.is_alive():
+            return
+
+        self.tick_timer += dt
+        if self.tick_timer >= self.tick_interval:
+            self.tick_timer -= self.tick_interval
+            self.apply_chill()
+
+    def apply_chill(self):
+        from status_effect import StatModifierEffect
+        enemies = self.unit.board.get_enemy_units(self.unit.team)
+        for enemy in enemies:
+            if enemy.is_alive():
+                distance = self.unit.board.get_distance(self.unit, enemy)
+                if distance <= self.range:
+                    # Check if already chilled by this item
+                    has_chill = any(e.name == "Frosty Chill" for e in enemy.status_effects)
+                    if not has_chill:
+                        chill = StatModifierEffect(
+                            "Frosty Chill",
+                            2.0,  # 2 second duration, reapplied every second
+                            {"attack_speed": -15, "move_speed": -0.4}
+                        )
+                        chill.source = self.unit
+                        enemy.add_status_effect(chill)
+
+
 def create_item(item_name: str) -> Item:
     item_classes = {
         "frenzy_mask": FrenzyMask,
@@ -669,6 +721,8 @@ def create_item(item_name: str) -> Item:
         "throwing_knives": ThrowingKnives,
         "venomous_blade": VenomousBlade,
         "critical_edge": CriticalEdge,
+        "basilisk_hammer": BasiliskHammer,
+        "frosty_cloak": FrostyCloak,
     }
 
     item_class = item_classes.get(item_name.lower().replace(" ", "_"))
@@ -707,6 +761,8 @@ def get_all_items():
         "throwing_knives",
         "venomous_blade",
         "critical_edge",
+        "basilisk_hammer",
+        "frosty_cloak",
     ]
 
 
