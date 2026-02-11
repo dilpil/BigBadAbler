@@ -785,6 +785,20 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
         else:  # 10% rare unit augment (dragon, etc)
             shop.append(DragonAugment())
 
+    # Sort shop by type: units first, then items, then augments
+    def sort_key(entry):
+        if isinstance(entry, CharacterShopEntry):
+            return 0  # Units first
+        elif isinstance(entry, ItemAugment):
+            return 1  # Items second
+        elif isinstance(entry, PassiveAugment):
+            return 2  # Augments third
+        elif isinstance(entry, UnitAugment):
+            return 3  # Rare units last
+        return 4
+
+    shop.sort(key=sort_key)
+
     return shop
 
 

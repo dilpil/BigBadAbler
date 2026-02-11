@@ -135,6 +135,8 @@ class PyUI:
         # Flash effect for invalid augment clicks
         self.augment_panel_flash_timer = 0
         self.augment_panel_flash_duration = 0.3  # Flash for 0.3 seconds
+        self.shop_item_flash_index = None  # Index of shop item to flash red
+        self.shop_item_flash_timer = 0
         
         # UI-only smooth movement tracking
         self.unit_visual_positions = {}  # unit_id -> (visual_x, visual_y, target_x, target_y, progress, duration)
@@ -317,8 +319,7 @@ class PyUI:
                             self.game.add_message(f"Selected {augment.item.name} - click a unit to equip")
                             return
                         else:
-                            # Not an item augment - can't select it, flash the panel
-                            self.augment_panel_flash_timer = self.augment_panel_flash_duration
+                            # Not an item augment - can't select it, do nothing
                             return
         
         if self.shop_open != ShopType.NONE:
@@ -607,8 +608,7 @@ class PyUI:
                 # Clear any selection
                 self.selected_shop_entry = None
                 self.selected_shop_entry_index = None
-            else:
-                self.augment_panel_flash_timer = self.augment_panel_flash_duration
+            # If can't afford reroll, just do nothing
             return
 
         # Calculate centered position for shop items
@@ -622,6 +622,8 @@ class PyUI:
             aug_x = start_x + i * (augment_width + augment_spacing)
             if aug_x <= pos[0] <= aug_x + augment_width:
                 from augment import ItemAugment, UnitAugment
+
+                from augment import PassiveAugment
 
                 if self.game.gold >= entry.cost:
                     # Handle different entry types
@@ -651,8 +653,12 @@ class PyUI:
                         # PassiveAugment or other - just purchase
                         self.game.purchase_augment(i)
                 else:
-                    # Not enough gold - trigger flash effect
-                    self.augment_panel_flash_timer = self.augment_panel_flash_duration
+                    # Not enough gold - flash the specific item icon red
+                    # But only for buyable types (characters, items, rare units)
+                    # PassiveAugments that can't be afforded just do nothing
+                    if not isinstance(entry, PassiveAugment):
+                        self.shop_item_flash_index = i
+                        self.shop_item_flash_timer = self.augment_panel_flash_duration
                 break
             
     def get_shop_hover_unit(self, pos):
@@ -705,7 +711,13 @@ class PyUI:
         # Update augment panel flash timer
         if self.augment_panel_flash_timer > 0:
             self.augment_panel_flash_timer -= dt
-            
+
+        # Update shop item flash timer
+        if self.shop_item_flash_timer > 0:
+            self.shop_item_flash_timer -= dt
+            if self.shop_item_flash_timer <= 0:
+                self.shop_item_flash_index = None
+
         # Track unit position changes for smooth movement
         if self.game.phase in [GamePhase.COMBAT, GamePhase.POST_COMBAT]:
             for unit in self.game.board.get_all_units():
@@ -1343,14 +1355,22 @@ class PyUI:
                 item_x = x + (augment_width - item_size) // 2
                 item_y = y + 6
 
+                # Check if this item should flash red
+                is_flashing = (self.shop_item_flash_index == i and self.shop_item_flash_timer > 0)
+                if is_flashing:
+                    flash_intensity = self.shop_item_flash_timer / self.augment_panel_flash_duration
+                    flash_color = self._blend_colors(aug_color, (255, 50, 50), flash_intensity)
+                else:
+                    flash_color = aug_color
+
                 # Apply transparency if can't afford
                 if not can_afford:
                     s = pygame.Surface((item_size, item_size))
-                    s.fill(aug_color)
+                    s.fill(flash_color)
                     s.set_alpha(100)
                     self.screen.blit(s, (item_x, item_y))
                 else:
-                    pygame.draw.rect(self.screen, aug_color, (item_x, item_y, item_size, item_size))
+                    pygame.draw.rect(self.screen, flash_color, (item_x, item_y, item_size, item_size))
 
                 # Draw type letter
                 text_color = self.colors['text'] if can_afford else (100, 100, 100)
