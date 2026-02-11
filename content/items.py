@@ -640,16 +640,16 @@ class CriticalEdge(Item):
 
 
 class BasiliskHammer(Item):
-    """On attack, deal physical damage equal to target's armor + resist"""
+    """On attack, deal physical damage equal to wielder's armor + resist"""
     def __init__(self):
-        super().__init__("Basilisk Hammer", "On attack: deal physical damage equal to target's armor + magic resist", 55)
+        super().__init__("Basilisk Hammer", "On attack: deal physical damage equal to your armor + magic resist", 55)
         self.stats = {"attack_damage": 15}
 
     def on_event(self, event_type: str, **kwargs):
         if event_type == "unit_attack" and kwargs.get("attacker") == self.unit:
             target = kwargs.get("target")
-            if target and target.is_alive():
-                bonus_damage = target.armor + target.magic_resist
+            if target and target.is_alive() and self.unit:
+                bonus_damage = self.unit.armor + self.unit.magic_resist
                 if bonus_damage > 0:
                     target.take_damage(bonus_damage, "physical", self.unit)
 

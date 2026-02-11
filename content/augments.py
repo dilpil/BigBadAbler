@@ -839,7 +839,7 @@ class BasiliskHammerAugment(ItemAugment):
     def __init__(self):
         super().__init__(
             "Basilisk Hammer",
-            "Item: On attack deal damage = target's armor + MR",
+            "Item: On attack deal damage = your armor + MR",
             55,
             lambda: create_item("basilisk_hammer")
         )
