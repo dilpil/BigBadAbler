@@ -1404,7 +1404,7 @@ class PyUI:
             
             # Draw messages - start from top without title
             y = log_y + 10
-            for message in self.game.message_log[-8:]:  # Increased to 8 messages with extra space
+            for message in self.game.message_log[-7:]:
                 text = self.fonts['small'].render(message, True, self.colors['text'])
                 self.screen.blit(text, (log_x + 20, y))
                 y += 20
