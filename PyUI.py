@@ -14,19 +14,7 @@ from skill_factory import create_skill, get_skill_cost
 from content.augments import generate_augment_shop, CharacterShopEntry
 from visual_effects import EffectManager
 from visual_effect import VisualEffectType
-from constants import FPS, ANIM_FRAME_DURATION
-import os
-
-# Sprite mapping: UnitType -> sprite filename
-UNIT_SPRITE_MAP = {
-    UnitType.NECROMANCER: "char_10.png",
-    UnitType.PALADIN: "char_5.png",
-    UnitType.PYROMANCER: "char_4.png",
-    UnitType.BERSERKER: "char_2.png",
-    UnitType.CLERIC: "char_8.png",
-    UnitType.ASSASSIN: "char_7.png",
-    UnitType.SKELETON: "char_12.png",
-}
+from constants import FPS
 
 class PyUI:
     def __init__(self):
@@ -120,10 +108,6 @@ class PyUI:
             'huge': pygame.font.Font(None, 60)
         }
 
-        # Load sprite sheets and extract frames
-        self.sprite_frames = {}  # unit_type -> {anim_state -> [frames]}
-        self.load_sprites()
-
         self.shop_open = ShopType.NONE
         self.tooltip = None
 
@@ -182,91 +166,6 @@ class PyUI:
             return
         if sound_name in self.sounds:
             self.sounds[sound_name].play()
-
-    def load_sprites(self):
-        """Load all unit sprite sheets and extract animation frames"""
-        sprite_dir = os.path.join(os.path.dirname(__file__), "art", "chars")
-
-        for unit_type, filename in UNIT_SPRITE_MAP.items():
-            filepath = os.path.join(sprite_dir, filename)
-            try:
-                sheet = pygame.image.load(filepath).convert_alpha()
-                # Sprite sheet is 48x96 (2 cols x 4 rows), each frame is 24x24
-                frame_width = 24
-                frame_height = 24
-
-                frames = {
-                    "idle": [],    # Row 0: 2 frames
-                    "attack": [],  # Row 1: 2 frames
-                    "flinch": [],  # Row 2: 1 frame (use col 0)
-                    "death": []    # Row 3: 2 frames
-                }
-
-                # Extract frames from sprite sheet
-                for col in range(2):
-                    # Idle frames (row 0)
-                    idle_frame = sheet.subsurface(pygame.Rect(col * frame_width, 0, frame_width, frame_height))
-                    frames["idle"].append(idle_frame)
-
-                    # Attack frames (row 1)
-                    attack_frame = sheet.subsurface(pygame.Rect(col * frame_width, frame_height, frame_width, frame_height))
-                    frames["attack"].append(attack_frame)
-
-                    # Death frames (row 3)
-                    death_frame = sheet.subsurface(pygame.Rect(col * frame_width, frame_height * 3, frame_width, frame_height))
-                    frames["death"].append(death_frame)
-
-                # Flinch frame (row 2, col 0 only)
-                flinch_frame = sheet.subsurface(pygame.Rect(0, frame_height * 2, frame_width, frame_height))
-                frames["flinch"].append(flinch_frame)
-
-                self.sprite_frames[unit_type] = frames
-
-            except pygame.error as e:
-                print(f"Error loading sprite {filepath}: {e}")
-                self.sprite_frames[unit_type] = None
-
-    def get_unit_sprite(self, unit):
-        """Get the current sprite frame for a unit based on animation state"""
-        unit_type = unit.unit_type
-        if unit_type not in self.sprite_frames or self.sprite_frames[unit_type] is None:
-            return None
-
-        frames = self.sprite_frames[unit_type]
-        anim_state = unit.anim_state
-        anim_frame = unit.anim_frame
-
-        # Map "cast" state to attack animation frames
-        if anim_state == "cast":
-            anim_state = "attack"
-
-        if anim_state not in frames:
-            anim_state = "idle"
-
-        frame_list = frames[anim_state]
-        if not frame_list:
-            return None
-
-        # Clamp frame index
-        frame_index = min(anim_frame, len(frame_list) - 1)
-        return frame_list[frame_index]
-
-    def apply_flash_to_sprite(self, sprite, flash_color, intensity):
-        """Apply a color flash effect to a sprite"""
-        if intensity <= 0:
-            return sprite
-
-        # Create a copy to avoid modifying the cached sprite
-        sprite_copy = sprite.copy()
-
-        # Create a colored overlay
-        overlay = pygame.Surface(sprite_copy.get_size(), pygame.SRCALPHA)
-        overlay.fill((*flash_color, int(255 * intensity)))
-
-        # Blend the overlay onto the sprite using additive blending
-        sprite_copy.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-
-        return sprite_copy
 
     def init_game(self):
         self.game.available_units = get_available_units()
@@ -1025,12 +924,11 @@ class PyUI:
             if flash_phase == 0:
                 alpha = 128
                 
-        # Get the current sprite frame
-        sprite = self.get_unit_sprite(unit)
+        # Draw unit square - always black background
+        unit_color = self.colors.get(unit.unit_type.value, (100, 100, 100))
+        background_color = (0, 0, 0)
 
-        # Calculate flash intensity for sprite tinting
-        flash_intensity = 0
-        flash_color = None
+        # Apply flash effect to background
         if unit.flash_timer > 0 and unit.flash_color:
             if unit.state.value == "casting":  # Continuous oscillating glow during casting
                 cast_progress = unit.cast_timer / unit.cast_time if unit.cast_time > 0 else 0
@@ -1039,48 +937,23 @@ class PyUI:
                 flash_intensity = min(1.0, base_intensity + (oscillation * 0.3))
             else:
                 flash_intensity = unit.flash_timer / unit.flash_duration
-            flash_color = unit.flash_color
 
-        if sprite:
-            # Scale sprite to fit tile (with some padding)
-            sprite_size = self.tile_size - 8  # Leave room for border
-            scaled_sprite = pygame.transform.scale(sprite, (sprite_size, sprite_size))
+            background_color = tuple(
+                int(background_color[i] * (1 - flash_intensity) + unit.flash_color[i] * flash_intensity)
+                for i in range(3)
+            )
 
-            # Flip enemy sprites horizontally so they face the player
-            if unit.team == "enemy":
-                scaled_sprite = pygame.transform.flip(scaled_sprite, True, False)
+        s = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
+        s.fill(background_color)
+        s.set_alpha(alpha)
+        self.screen.blit(s, (x + offset_x + 2, y + offset_y + 2))
 
-            # Apply flash effect to sprite
-            if flash_intensity > 0 and flash_color:
-                scaled_sprite = self.apply_flash_to_sprite(scaled_sprite, flash_color, flash_intensity)
-
-            # Set alpha for death flashing
-            scaled_sprite.set_alpha(alpha)
-
-            # Draw sprite centered in tile
-            sprite_x = x + offset_x + 4
-            sprite_y = y + offset_y + 4
-            self.screen.blit(scaled_sprite, (sprite_x, sprite_y))
-        else:
-            # Fallback to colored square if no sprite loaded
-            unit_color = self.colors.get(unit.unit_type.value, (100, 100, 100))
-            background_color = (0, 0, 0)
-            if flash_intensity > 0 and flash_color:
-                background_color = tuple(
-                    int(background_color[i] * (1 - flash_intensity) + flash_color[i] * flash_intensity)
-                    for i in range(3)
-                )
-            s = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
-            s.fill(background_color)
-            s.set_alpha(alpha)
-            self.screen.blit(s, (x + offset_x + 2, y + offset_y + 2))
-
-            # Draw unit letter
-            letter = unit.unit_type.value[0].upper()
-            text = self.fonts['large'].render(letter, True, unit_color)
-            text_rect = text.get_rect(center=(x + offset_x + self.tile_size // 2,
-                                             y + offset_y + self.tile_size // 2 - 5))
-            self.screen.blit(text, text_rect)
+        # Draw unit letter with unit color
+        letter = unit.unit_type.value[0].upper()
+        text = self.fonts['large'].render(letter, True, unit_color)
+        text_rect = text.get_rect(center=(x + offset_x + self.tile_size // 2,
+                                         y + offset_y + self.tile_size // 2 - 5))
+        self.screen.blit(text, text_rect)
 
         # Draw border
         border_color = self.colors['player_border'] if unit.team == "player" else self.colors['enemy_border']

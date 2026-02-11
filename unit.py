@@ -132,11 +132,6 @@ class Unit:
         self.death_timer = 0
         self.cast_jump_timer = 0
 
-        # Animation state for sprites
-        self.anim_state = "idle"  # idle, attack, flinch, death
-        self.anim_frame = 0       # current frame index (0 or 1)
-        self.anim_timer = 0       # time until next frame
-        
     def is_alive(self) -> bool:
         return self.hp > 0
     
@@ -185,11 +180,6 @@ class Unit:
         self.bump_direction = (dx * 0.6, dy * 0.6)
         self.bump_timer = 0.3
 
-        # Animation state - attack animation
-        self.anim_state = "attack"
-        self.anim_frame = 0
-        self.anim_timer = 0
-
         self.board.raise_event("unit_attack", attacker=self, target=target, damage=damage)
     
     def take_damage(self, amount: float, damage_type: str, source):
@@ -220,11 +210,6 @@ class Unit:
         self.flash_timer = 0.1
         self.flash_duration = 0.1
 
-        # Animation state - flinch animation
-        self.anim_state = "flinch"
-        self.anim_frame = 0
-        self.anim_timer = 0
-        
         # Text floater for damage
         if damage_type == "physical":
             damage_color = (255, 255, 255)  # White for physical damage
@@ -289,11 +274,6 @@ class Unit:
         self.death_timer = 0.8  # 4 flashes over 0.8 seconds
         self.flash_color = (255, 0, 0)
 
-        # Animation state - death animation
-        self.anim_state = "death"
-        self.anim_frame = 0
-        self.anim_timer = 0
-        
         # Add to combat log and play death sound
         if self.board.game:
             killer_name = killer.name if hasattr(killer, 'name') else "Unknown"
@@ -336,11 +316,6 @@ class Unit:
         self.flash_duration = skill.cast_time
         # Don't jump up immediately - will jump at cast completion
 
-        # Animation state - show first attack frame while casting
-        self.anim_state = "cast"
-        self.anim_frame = 0
-        self.anim_timer = 0
-        
         # Text floater for beginning cast
         self.board.make_text_floater(f"Casting {skill.name}...", (128, 0, 255), unit=self)
         
@@ -368,30 +343,6 @@ class Unit:
             
         if self.cast_jump_timer > 0:
             self.cast_jump_timer -= dt
-
-        # Update sprite animation
-        from constants import ANIM_FRAME_DURATION
-        self.anim_timer += dt
-        frame_duration = ANIM_FRAME_DURATION / 60.0  # Convert frames to seconds
-        if self.anim_timer >= frame_duration:
-            self.anim_timer -= frame_duration
-            self.anim_frame += 1
-            # Handle animation completion
-            if self.anim_state == "idle":
-                self.anim_frame = self.anim_frame % 2  # Loop idle: 2 frames
-            elif self.anim_state == "attack":
-                if self.anim_frame >= 2:  # Attack has 2 frames
-                    self.anim_state = "idle"
-                    self.anim_frame = 0
-            elif self.anim_state == "cast":
-                self.anim_frame = 0  # Hold on first frame while casting
-            elif self.anim_state == "flinch":
-                if self.anim_frame >= 1:  # Flinch has 1 frame, then return to idle
-                    self.anim_state = "idle"
-                    self.anim_frame = 0
-            elif self.anim_state == "death":
-                if self.anim_frame >= 2:  # Death has 2 frames, hold on last
-                    self.anim_frame = 1
 
         if self.death_timer > 0:
             self.death_timer -= dt
@@ -448,11 +399,6 @@ class Unit:
             if self.cast_timer >= self.cast_time:
                 # Visual effect - bump up when cast completes
                 self.cast_jump_timer = 0.3
-
-                # Animation state - flash second attack frame on cast complete
-                self.anim_state = "attack"
-                self.anim_frame = 1  # Second frame
-                self.anim_timer = 0
 
                 # Text floater for completing cast
                 self.board.make_text_floater(f"Casts {self.cast_skill.name}!", (128, 0, 255), unit=self)
@@ -569,11 +515,6 @@ class Unit:
         self.bump_direction = (0, 0)
         self.death_timer = 0  # This was the bug!
         self.cast_jump_timer = 0
-
-        # Animation state
-        self.anim_state = "idle"
-        self.anim_frame = 0
-        self.anim_timer = 0
 
         # Spells no longer have cooldowns
     
