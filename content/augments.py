@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from augment import Augment, UnitAugment, ItemAugment, PassiveAugment
 from content.items import create_item
 from unit import UnitType
+from status_effect import StatModifierEffect
 import random
 
 
@@ -34,76 +35,105 @@ class CharacterShopEntry:
 
 class AttackBoostAugment(PassiveAugment):
     """Increases attack damage of all units by 25%"""
-    
+
     def __init__(self):
         super().__init__(
             "Berserker's Blessing",
             "All your units gain +25% attack damage",
             40
         )
-        
+
     def on_battle_start(self):
-        """Apply the attack boost to all units at battle start"""
+        """Apply the attack boost to all units at battle start via status effect"""
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    unit.attack_damage = int(unit.attack_damage * 1.25)
+                    bonus = int(unit.attack_damage * 0.25)
+                    effect = StatModifierEffect(
+                        "Berserker's Blessing",
+                        duration=-1,  # Lasts until combat ends
+                        stat_changes={"attack_damage": bonus}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
 
 
 class HealthBoostAugment(PassiveAugment):
     """Increases max HP of all units by 25%"""
-    
+
     def __init__(self):
         super().__init__(
             "Vitality Surge",
             "All your units gain +25% max HP",
             40
         )
-        
+
     def on_battle_start(self):
-        """Apply the HP boost to all units at battle start"""
+        """Apply the HP boost to all units at battle start via status effect"""
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    hp_increase = int(unit.max_hp * 0.25)
-                    unit.max_hp += hp_increase
-                    unit.hp += hp_increase  # Also heal for the increased amount
+                    hp_bonus = int(unit.max_hp * 0.25)
+                    effect = StatModifierEffect(
+                        "Vitality Surge",
+                        duration=-1,  # Lasts until combat ends
+                        stat_changes={"max_hp": hp_bonus}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
+                    # Also heal for the increased amount
+                    unit.hp += hp_bonus
 
 
 class ArmorBoostAugment(PassiveAugment):
     """Increases armor of all units by 25"""
-    
+
     def __init__(self):
         super().__init__(
             "Iron Fortification",
             "All your units gain +25 armor",
             35
         )
-        
+
     def on_battle_start(self):
-        """Apply the armor boost to all units at battle start"""
+        """Apply the armor boost to all units at battle start via status effect"""
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    unit.armor += 25
+                    effect = StatModifierEffect(
+                        "Iron Fortification",
+                        duration=-1,  # Lasts until combat ends
+                        stat_changes={"armor": 25}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
 
 
 class AttackSpeedBoostAugment(PassiveAugment):
     """Increases attack speed of all units by 25%"""
-    
+
     def __init__(self):
         super().__init__(
             "Swift Strikes",
             "All your units gain +25% attack speed",
             40
         )
-        
+
     def on_battle_start(self):
-        """Apply the attack speed boost to all units at battle start"""
+        """Apply the attack speed boost to all units at battle start via status effect"""
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    unit.attack_speed += 25
+                    bonus = int(unit.attack_speed * 0.25)
+                    # Minimum bonus of 25 if unit has low attack speed
+                    bonus = max(bonus, 25)
+                    effect = StatModifierEffect(
+                        "Swift Strikes",
+                        duration=-1,  # Lasts until combat ends
+                        stat_changes={"attack_speed": bonus}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
 
 
 class GoldGenerationAugment(PassiveAugment):
@@ -139,8 +169,13 @@ class DefensiveAuraAugment(PassiveAugment):
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    unit.armor += 50
-                    unit.magic_resist += 50
+                    effect = StatModifierEffect(
+                        "Defensive Aura",
+                        duration=-1,
+                        stat_changes={"armor": 50, "magic_resist": 50}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
 
 
 class RegenerationFieldAugment(PassiveAugment):
@@ -182,9 +217,13 @@ class FireResistanceAugment(PassiveAugment):
         if self.team and self.team.board:
             for unit in self.team.units:
                 if unit.is_alive():
-                    if not hasattr(unit, 'fire_resist'):
-                        unit.fire_resist = 0
-                    unit.fire_resist += 50
+                    effect = StatModifierEffect(
+                        "Fire Resistance",
+                        duration=-1,
+                        stat_changes={"fire_resist": 50}
+                    )
+                    effect.source = self
+                    unit.add_status_effect(effect)
 
 
 class DeathsChillAugment(PassiveAugment):

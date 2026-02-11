@@ -468,11 +468,16 @@ class Unit:
     def reset(self):
         """Reset unit to fresh state for new round."""
         # Basic stats
+        # Properly remove all status effects (so stat modifiers are reverted)
+        for effect in self.status_effects[:]:  # Copy list to avoid modification during iteration
+            effect.remove(self)
+        self.status_effects.clear()
+
+        # Now reset HP after status effects are removed
         self.hp = self.max_hp
         self.old_cur_hp = self.max_hp
         self.damage_anim_timer = 0.0
         self.heal_anim_timer = 0.0
-        self.status_effects.clear()
         
         # Reset spell mana to 0
         if self.spell:
