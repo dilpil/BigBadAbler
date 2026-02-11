@@ -161,23 +161,6 @@ class AttackSpeedBoostAugment(PassiveAugment):
         return True
 
 
-class GoldGenerationAugment(PassiveAugment):
-    """Generates extra gold each round"""
-    
-    def __init__(self):
-        super().__init__(
-            "Merchant's Fortune",
-            "Gain +10 gold at the end of each round",
-            30
-        )
-        
-    def on_round_end(self, game=None):
-        """Add extra gold at the end of the round (only works for player teams)"""
-        # This augment only makes sense for player teams
-        if self.team and self.team.name == "player" and game:
-            game.give_gold(10, bonus=True)
-
-
 # New Global Augments (converted from unit upgrades)
 
 class DefensiveAuraAugment(PassiveAugment):
@@ -648,7 +631,6 @@ def get_all_augment_types():
         HealthBoostAugment,
         ArmorBoostAugment,
         AttackSpeedBoostAugment,
-        GoldGenerationAugment,
         # New global augments
         DefensiveAuraAugment,
         RegenerationFieldAugment,
@@ -699,7 +681,6 @@ def get_all_passive_augment_types():
         HealthBoostAugment,
         ArmorBoostAugment,
         AttackSpeedBoostAugment,
-        GoldGenerationAugment,
         # New global augments
         DefensiveAuraAugment,
         RegenerationFieldAugment,
