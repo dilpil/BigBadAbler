@@ -10,7 +10,6 @@ class ShopType(Enum):
 
 from content.unit_registry import create_unit, get_available_units, get_unit_cost
 from unit import UnitType
-from skill_factory import create_skill, get_skill_cost
 from content.augments import generate_augment_shop, CharacterShopEntry
 from visual_effects import EffectManager
 from visual_effect import VisualEffectType

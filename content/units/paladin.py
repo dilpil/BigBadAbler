@@ -24,9 +24,7 @@ class Paladin(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_paladin_skill("holy_heal")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(HolyAura())
     
     @staticmethod
     def get_cost() -> int:
@@ -70,15 +68,3 @@ class HolyAura(Skill):
                 if caster.board:
                     from visual_effect import VisualEffectType
                     caster.board.add_visual_effect(VisualEffectType.HOLY, ally.x, ally.y)
-
-
-def create_paladin_skill(skill_name) -> Skill:
-    """Create paladin-specific skills"""
-    skill_classes = {
-        "holy_heal": HolyAura,
-    }
-
-    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
-    if skill_class:
-        return skill_class()
-    return None

@@ -118,28 +118,6 @@ class Game:
             
         return False
     
-    def purchase_skill(self, unit: Unit, skill_name: str) -> bool:
-        cost = self.get_skill_cost(skill_name)
-        if self.gold < cost:
-            return False
-            
-        if unit.spell:
-            return False
-            
-        skill = self.create_skill(skill_name)
-        if not skill:
-            return False
-            
-        if unit.set_spell(skill):
-            self.gold -= cost
-            self.add_message(f"Purchased {skill.name} for {unit.name} for {cost} gold")
-            # Play purchase sound
-            if hasattr(self, 'ui') and self.ui:
-                self.ui.play_sound('buy')
-            return True
-            
-        return False
-    
     def purchase_augment(self, augment_index: int) -> bool:
         """Purchase an augment from the shop (for traditional augments like PassiveAugment, ItemAugment, UnitAugment)"""
         from content.augments import CharacterShopEntry
@@ -398,17 +376,10 @@ class Game:
         # Delegate to player team
         return self.player_team.get_unit_cost()
     
-    def get_skill_cost(self, skill_name: str) -> int:
-        return 25
-    
     def create_unit(self, unit_type: UnitType) -> Optional[Unit]:
         from content.unit_registry import create_unit
         return create_unit(unit_type)
-    
-    def create_skill(self, skill_name: str):
-        from skill_factory import create_skill
-        return create_skill(skill_name)
-    
+
     def add_message(self, message: str):
         self.message_log.append(message)
         if len(self.message_log) > 20:

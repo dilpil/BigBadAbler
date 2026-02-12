@@ -22,9 +22,7 @@ class Yeti(Unit):
         self._set_default_skill()
 
     def _set_default_skill(self):
-        default_skill = create_yeti_skill("deep_freeze")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(DeepFreeze())
 
     @staticmethod
     def get_cost() -> int:
@@ -92,14 +90,3 @@ class FreezeEffect(StatusEffect):
         # Restore original stats
         unit.attack_speed = self.stored_attack_speed
         unit.move_speed = self.stored_move_speed
-
-
-def create_yeti_skill(skill_name) -> Skill:
-    skill_classes = {
-        "deep_freeze": DeepFreeze,
-    }
-
-    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
-    if skill_class:
-        return skill_class()
-    return None

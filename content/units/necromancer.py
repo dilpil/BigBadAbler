@@ -25,9 +25,7 @@ class Necromancer(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_necromancer_skill("summon_skeleton")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(SummonSkeleton())
     
     @staticmethod
     def get_cost() -> int:
@@ -71,15 +69,3 @@ class SummonSkeleton(Skill):
         skeleton.attack_speed = 0  # 1.0 attacks per second
         skeleton.armor = 20
         return skeleton
-
-
-def create_necromancer_skill(skill_identifier) -> Skill:
-    """Create necromancer-specific skills"""
-    skill_classes = {
-        "summon_skeleton": SummonSkeleton,
-    }
-    
-    skill_class = skill_classes.get(skill_identifier)
-    if skill_class:
-        return skill_class()
-    return None

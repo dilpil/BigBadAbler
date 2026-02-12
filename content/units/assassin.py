@@ -26,9 +26,7 @@ class Assassin(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_assassin_skill("teleport_strike")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(TeleportStrike())
     
     @staticmethod
     def get_cost() -> int:
@@ -132,19 +130,3 @@ class TeleportStrike(Skill):
                         return (x, y)
         
         return None
-
-
-def create_assassin_skill(skill_name) -> Skill:
-    """Create assassin-specific skills"""
-    skill_classes = {
-        "teleport_strike": TeleportStrike,
-    }
-
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-
-    if skill_class:
-        return skill_class()
-    return None

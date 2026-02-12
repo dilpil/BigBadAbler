@@ -26,9 +26,7 @@ class Berserker(Unit):
     
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_berserker_skill("frenzy")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(Frenzy())
     
     @staticmethod
     def get_cost() -> int:
@@ -92,15 +90,3 @@ class Frenzy(Skill):
         effect = FrenzyEffect()
         effect.source = caster
         caster.add_status_effect(effect)
-
-
-def create_berserker_skill(skill_name: str) -> Skill:
-    """Create berserker-specific skills"""
-    skill_classes = {
-        "frenzy": Frenzy,
-    }
-
-    skill_class = skill_classes.get(skill_name)
-    if skill_class:
-        return skill_class()
-    return None

@@ -27,9 +27,7 @@ class Pyromancer(Unit):
 
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_pyromancer_skill("fireball")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(Fireball())
 
     @staticmethod
     def get_cost() -> int:
@@ -100,15 +98,3 @@ class Fireball(Skill):
 
             projectile.on_hit_callback = fireball_explosion
             caster.board.add_projectile(projectile)
-
-
-def create_pyromancer_skill(skill_name: str) -> Skill:
-    """Create pyromancer-specific skills"""
-    skill_classes = {
-        "fireball": Fireball,
-    }
-
-    skill_class = skill_classes.get(skill_name)
-    if skill_class:
-        return skill_class()
-    return None

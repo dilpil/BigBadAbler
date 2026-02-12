@@ -22,9 +22,7 @@ class OgreShaman(Unit):
         self._set_default_skill()
 
     def _set_default_skill(self):
-        default_skill = create_ogre_shaman_skill("battle_cry")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(BattleCry())
 
     @staticmethod
     def get_cost() -> int:
@@ -66,14 +64,3 @@ class BattleCry(Skill):
                 if caster.board:
                     from visual_effect import VisualEffectType
                     caster.board.add_visual_effect(VisualEffectType.HOLY, ally.x, ally.y)
-
-
-def create_ogre_shaman_skill(skill_name) -> Skill:
-    skill_classes = {
-        "battle_cry": BattleCry,
-    }
-
-    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
-    if skill_class:
-        return skill_class()
-    return None

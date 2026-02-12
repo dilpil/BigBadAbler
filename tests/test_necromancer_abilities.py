@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board import Board
 from game import Game, GameMode
-from content.units.necromancer import create_necromancer, create_necromancer_skill
+from content.units.necromancer import create_necromancer
 from unit import Unit, UnitType
 
 

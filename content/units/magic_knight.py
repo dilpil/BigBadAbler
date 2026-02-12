@@ -22,9 +22,7 @@ class MagicKnight(Unit):
         self._set_default_skill()
 
     def _set_default_skill(self):
-        default_skill = create_magic_knight_skill("arcane_shield")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(ArcaneShield())
 
     @staticmethod
     def get_cost() -> int:
@@ -82,18 +80,3 @@ class ShieldEffect(StatusEffect):
             unit.remove_status_effect(self)
 
         return damage_amount - absorbed
-
-
-def create_magic_knight_skill(skill_name) -> Skill:
-    skill_classes = {
-        "arcane_shield": ArcaneShield,
-    }
-
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-
-    if skill_class:
-        return skill_class()
-    return None

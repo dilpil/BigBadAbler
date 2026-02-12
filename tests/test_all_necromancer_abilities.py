@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board import Board
 from game import Game, GameMode
-from content.units.necromancer import create_necromancer, create_necromancer_skill
+from content.units.necromancer import create_necromancer, SummonSkeleton
 from unit import Unit, UnitType
 
 
@@ -39,7 +39,7 @@ class TestAllNecromancerAbilities(unittest.TestCase):
 
     def test_summon_skeleton_creates_skeleton(self):
         """Test basic skeleton summoning"""
-        skill = create_necromancer_skill("summon_skeleton")
+        skill = SummonSkeleton()
         skill.owner = self.necromancer
         skill.current_mana = 100
 

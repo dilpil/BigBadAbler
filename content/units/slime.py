@@ -22,9 +22,7 @@ class Slime(Unit):
         self._set_default_skill()
 
     def _set_default_skill(self):
-        default_skill = create_slime_skill("mitosis")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(Mitosis())
 
     def attack(self, target):
         """Override attack to apply poison on hit"""
@@ -99,14 +97,3 @@ class Mitosis(Skill):
                         elif unit.team == "enemy" and x >= 4:
                             return (x, y)
         return None
-
-
-def create_slime_skill(skill_name) -> Skill:
-    skill_classes = {
-        "mitosis": Mitosis,
-    }
-
-    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
-    if skill_class:
-        return skill_class()
-    return None

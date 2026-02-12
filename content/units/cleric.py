@@ -25,9 +25,7 @@ class Cleric(Unit):
 
     def _set_default_skill(self):
         """Set the default skill for this unit"""
-        default_skill = create_cleric_skill("heal")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(Heal())
 
     @staticmethod
     def get_cost() -> int:
@@ -79,19 +77,3 @@ class Heal(Skill):
         if caster.board:
             from visual_effect import VisualEffectType
             caster.board.add_visual_effect(VisualEffectType.HOLY, target.x, target.y)
-
-
-def create_cleric_skill(skill_name) -> Skill:
-    """Create cleric-specific skills"""
-    skill_classes = {
-        "heal": Heal,
-    }
-
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-
-    if skill_class:
-        return skill_class()
-    return None

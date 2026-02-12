@@ -21,9 +21,7 @@ class Wizard(Unit):
         self._set_default_skill()
 
     def _set_default_skill(self):
-        default_skill = create_wizard_skill("chain_lightning")
-        if default_skill:
-            self.set_spell(default_skill)
+        self.set_spell(ChainLightning())
 
     @staticmethod
     def get_cost() -> int:
@@ -89,14 +87,3 @@ class ChainLightning(Skill):
                 current_target = min(nearby, key=lambda e: caster.board.get_distance(current_target, e))
             else:
                 current_target = None
-
-
-def create_wizard_skill(skill_name) -> Skill:
-    skill_classes = {
-        "chain_lightning": ChainLightning,
-    }
-
-    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
-    if skill_class:
-        return skill_class()
-    return None

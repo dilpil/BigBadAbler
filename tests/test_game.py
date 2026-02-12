@@ -85,19 +85,12 @@ class TestGameSanity(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         # Override create methods
-        from content.unit_registry import create_unit
-        from skill_factory import create_skill
+        from content.unit_registry import create_unit, get_unit_cost
         self.game.create_unit = create_unit
-        self.game.create_skill = create_skill
-        
-        # Override cost methods  
-        from content.unit_registry import get_unit_cost
-        from skill_factory import get_skill_cost
         self.game.get_unit_cost = get_unit_cost
-        self.game.get_skill_cost = get_skill_cost
-        
+
         self.game.start_new_round()
-    
+
     def test_game_setup_and_purchase(self):
         """Test basic game setup and unit purchasing."""
         # Verify initial state
@@ -152,14 +145,11 @@ class TestGameRoundReset(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         from content.unit_registry import create_unit, get_unit_cost
-        from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
-        self.game.create_skill = create_skill
         self.game.get_unit_cost = get_unit_cost
-        self.game.get_skill_cost = get_skill_cost
-        
+
         self.game.start_new_round()
-    
+
     def test_three_round_cycle(self):
         """Test that the game can run three complete rounds without issues."""
         # Buy two units initially
@@ -228,14 +218,11 @@ class TestUnitPersistence(unittest.TestCase):
         self.game.available_items = generate_item_shop()
         
         from content.unit_registry import create_unit, get_unit_cost
-        from skill_factory import create_skill, get_skill_cost
         self.game.create_unit = create_unit
-        self.game.create_skill = create_skill
         self.game.get_unit_cost = get_unit_cost
-        self.game.get_skill_cost = get_skill_cost
-        
+
         self.game.start_new_round()
-    
+
     def test_unit_persistence_across_five_rounds(self):
         """Test that units persist correctly across 5 rounds with detailed tracking."""
         purchased_units = []  # Track what we buy each round
