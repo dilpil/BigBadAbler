@@ -80,7 +80,7 @@ class BattleCry(Skill):
 
                 if caster.board:
                     from visual_effect import VisualEffectType
-                    caster.board.add_visual_effect(VisualEffectType.BUFF, ally.x, ally.y)
+                    caster.board.add_visual_effect(VisualEffectType.HOLY, ally.x, ally.y)
 
 
 class BloodBond(Skill):
@@ -114,7 +114,7 @@ class BloodBond(Skill):
 
                 if owner.board:
                     from visual_effect import VisualEffectType
-                    owner.board.add_visual_effect(VisualEffectType.BUFF, ally.x, ally.y)
+                    owner.board.add_visual_effect(VisualEffectType.HOLY, ally.x, ally.y)
 
     def reset(self):
         self.triggered = False

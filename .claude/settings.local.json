@@ -8,7 +8,12 @@
       "Bash(mv:*)",
       "Bash(find:*)",
       "Bash(git restore:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove unit upgrades, add 10 items and 6 global augments\n\n- Remove UpgradeShopEntry and unit upgrade purchasing system\n- Convert 10 unit upgrades to generic items \\(Thunder Gloves, Leap Boots,\n  Armor Shredder, Cleaving Blade, Fire Staff, Healing Blade, Cloak of\n  Shadows, Throwing Knives, Venomous Blade, Critical Edge\\)\n- Convert 6 unit upgrades to global augments \\(Defensive Aura, Regeneration\n  Field, Fire Resistance, Death''s Chill, Purification, Soul Harvest\\)\n- Update shop distribution: 30% items, 45% augments, 10% rare units\n- Remove upgrade shop UI and related click handling\n- Keep passive skill methods for enemy AI team generation\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(findstr:*)"
     ],
     "deny": []
   }

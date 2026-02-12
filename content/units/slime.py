@@ -12,7 +12,7 @@ class Slime(Unit):
         self.max_hp = 300
         self.hp = self.max_hp
         self.attack_damage = 20
-        self.attack_range = 3  # Ranged
+        self.attack_range = 2  # Ranged
         self.attack_speed = 0
         self.strength = 0
         self.intelligence = 15
@@ -97,7 +97,7 @@ class Mitosis(Skill):
 
         if caster.board:
             from visual_effect import VisualEffectType
-            caster.board.add_visual_effect(VisualEffectType.BUFF, position[0], position[1])
+            caster.board.add_visual_effect(VisualEffectType.ARCANE, position[0], position[1])
 
     def _find_nearby_position(self, unit):
         """Find an empty position near the unit"""
