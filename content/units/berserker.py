@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from unit import Unit, UnitType, PassiveSkill
+from unit import Unit, UnitType
 from skill import Skill
 from status_effect import StatusEffect, StatModifierEffect
 import math
@@ -29,31 +29,6 @@ class Berserker(Unit):
         default_skill = create_berserker_skill("frenzy")
         if default_skill:
             self.set_spell(default_skill)
-    
-    def get_available_passive_skills(self) -> list:
-        """Get list of available passive skills for this unit"""
-        return [
-            PassiveSkill.FAST_FRENZY,
-            PassiveSkill.HUNGRY_FRENZY,
-            PassiveSkill.IMMORTAL_FRENZY,
-            PassiveSkill.LEAP,
-            PassiveSkill.FRENZY_CRY,
-            PassiveSkill.RIPPER,
-            PassiveSkill.CLEAVE
-        ]
-    
-    def get_passive_skill_cost(self, skill_name) -> int:
-        """Get the cost of a passive skill"""
-        costs = {
-            PassiveSkill.FAST_FRENZY: 30,
-            PassiveSkill.HUNGRY_FRENZY: 35,
-            PassiveSkill.IMMORTAL_FRENZY: 40,
-            PassiveSkill.LEAP: 45,
-            PassiveSkill.FRENZY_CRY: 50,
-            PassiveSkill.RIPPER: 35,
-            PassiveSkill.CLEAVE: 40
-        }
-        return costs.get(skill_name, 35)
     
     @staticmethod
     def get_cost() -> int:
@@ -113,209 +88,18 @@ class Frenzy(Skill):
         # Always cast when we have mana - Frenzy stacks!
         return True
         
-    def _caster_has_passive_skill(self, caster, skill_enum: PassiveSkill) -> bool:
-        """Check if caster has a specific passive skill"""
-        for passive in caster.passive_skills:
-            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_enum:
-                return True
-        return False
-        
     def execute(self, caster):
-        # Check for passive upgrades
-        fast_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.FAST_FRENZY)
-        hungry_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.HUNGRY_FRENZY)
-        immortal_frenzy = self._caster_has_passive_skill(caster, PassiveSkill.IMMORTAL_FRENZY)
-        frenzy_cry = self._caster_has_passive_skill(caster, PassiveSkill.FRENZY_CRY)
-        
-        # Create frenzy effect with upgrades
         effect = FrenzyEffect()
-        
-        if fast_frenzy:
-            effect.attack_speed_bonus = 15  # Upgrade from 10 to 15
-            
-        if hungry_frenzy:
-            effect.lifesteal_percent = 20  # Upgrade from 10 to 20
-            
-        if immortal_frenzy:
-            effect.armor_bonus = 10
-            effect.magic_resist_bonus = 10
-            
         effect.source = caster
         caster.add_status_effect(effect)
-        
-        # Apply to allies if Frenzy Cry is active
-        if frenzy_cry and caster.board:
-            allies = caster.board.get_allied_units(caster.team)
-            for ally in allies:
-                if ally != caster:  # Don't apply twice to caster
-                    ally_effect = FrenzyEffect()
-                    ally_effect.attack_speed_bonus = effect.attack_speed_bonus
-                    ally_effect.lifesteal_percent = effect.lifesteal_percent
-                    ally_effect.armor_bonus = effect.armor_bonus
-                    ally_effect.magic_resist_bonus = effect.magic_resist_bonus
-                    ally_effect.source = caster
-                    ally.add_status_effect(ally_effect)
-
-
-class FastFrenzy(Skill):
-    """Passive: Increases Frenzy attack speed bonus from 10% to 15%"""
-    def __init__(self):
-        super().__init__("Fast Frenzy", "Frenzy attack speed bonus increased from 10% to 15%")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.FAST_FRENZY
-
-
-class HungryFrenzy(Skill):
-    """Passive: Increases Frenzy lifesteal from 10% to 20%"""
-    def __init__(self):
-        super().__init__("Hungry Frenzy", "Frenzy lifesteal increased from 10% to 20%")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.HUNGRY_FRENZY
-
-
-class ImmortalFrenzy(Skill):
-    """Passive: Frenzy also grants 10 armor and 10 magic resist"""
-    def __init__(self):
-        super().__init__("Immortal Frenzy", "Frenzy also grants 10 armor and 10 magic resist")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.IMMORTAL_FRENZY
-
-
-class Leap(Skill):
-    """Passive: On kill, leap to the lowest HP enemy within 3 tiles"""
-    def __init__(self):
-        super().__init__("Leap", "On kill, leap to the lowest HP enemy within 3 tiles and attack")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.LEAP
-        
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_death" and kwargs.get("killer") == owner:
-            self.perform_leap()
-    
-    def perform_leap(self):
-        owner = getattr(self, 'owner', None)
-        if not owner or not owner.board:
-            return
-            
-        # Find lowest HP enemy within 3 tiles
-        enemies = owner.board.get_enemy_units(owner.team)
-        valid_targets = []
-        
-        for enemy in enemies:
-            distance = owner.board.get_distance(owner, enemy)
-            if distance <= 3 and enemy.is_alive():
-                valid_targets.append(enemy)
-        
-        if not valid_targets:
-            return
-            
-        # Find lowest HP target
-        target = min(valid_targets, key=lambda e: e.hp)
-        
-        # Leap to target (find adjacent position)
-        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-        leap_pos = None
-        
-        for dx, dy in directions:
-            x, y = target.x + dx, target.y + dy
-            if owner.board.is_valid_position(x, y) and not owner.board.get_unit_at(x, y):
-                leap_pos = (x, y)
-                break
-        
-        if leap_pos:
-            # Move berserker to leap position
-            old_x, old_y = owner.x, owner.y
-            owner.board.move_unit(owner, leap_pos[0], leap_pos[1])
-            
-            # Force attack the target
-            if owner.board.get_distance(owner, target) <= owner.attack_range:
-                owner.attack(target)
-
-
-class FrenzyCry(Skill):
-    """Passive: Frenzy effects all allies"""
-    def __init__(self):
-        super().__init__("Frenzy Cry", "Frenzy also affects all allied units")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.FRENZY_CRY
-
-
-class Ripper(Skill):
-    """Passive: On hit, reduce target's armor by 1 permanently"""
-    def __init__(self):
-        super().__init__("Ripper", "Attacks permanently reduce target's armor by 1")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.RIPPER
-        
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_attack" and kwargs.get("attacker") == owner:
-            target = kwargs.get("target")
-            if target and target.is_alive():
-                target.armor = max(0, target.armor - 1)  # Don't go below 0
-
-
-class Cleave(Skill):
-    """Passive: Primary attacks also hit up to 3 adjacent enemies"""
-    def __init__(self):
-        super().__init__("Cleave", "Attacks also hit up to 3 adjacent enemies for full damage")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.CLEAVE
-        
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_attack" and kwargs.get("attacker") == owner:
-            primary_target = kwargs.get("target")
-            self.perform_cleave(primary_target)
-    
-    def perform_cleave(self, primary_target):
-        owner = getattr(self, 'owner', None)
-        if not owner or not owner.board or not primary_target:
-            return
-            
-        # Find adjacent enemies to primary target
-        enemies = owner.board.get_enemy_units(owner.team)
-        cleave_targets = []
-        
-        for enemy in enemies:
-            if enemy != primary_target and enemy.is_alive():
-                # Check if enemy is adjacent to primary target
-                distance = owner.board.get_distance(primary_target, enemy)
-                if distance <= 1:
-                    cleave_targets.append(enemy)
-        
-        # Hit up to 3 adjacent enemies
-        for target in cleave_targets[:3]:
-            damage = owner.attack_damage
-            # Apply strength bonus
-            if owner.strength > 0:
-                damage *= (1 + owner.strength / 100.0)
-            
-            target.take_damage(damage, "physical", owner)
 
 
 def create_berserker_skill(skill_name: str) -> Skill:
     """Create berserker-specific skills"""
     skill_classes = {
         "frenzy": Frenzy,
-        PassiveSkill.FAST_FRENZY: FastFrenzy,
-        PassiveSkill.HUNGRY_FRENZY: HungryFrenzy,
-        PassiveSkill.IMMORTAL_FRENZY: ImmortalFrenzy,
-        PassiveSkill.LEAP: Leap,
-        PassiveSkill.FRENZY_CRY: FrenzyCry,
-        PassiveSkill.RIPPER: Ripper,
-        PassiveSkill.CLEAVE: Cleave,
-        # String versions for compatibility
-        "fast_frenzy": FastFrenzy,
-        "hungry_frenzy": HungryFrenzy,
-        "immortal_frenzy": ImmortalFrenzy,
-        "leap": Leap,
-        "frenzy_cry": FrenzyCry,
-        "ripper": Ripper,
-        "cleave": Cleave,
     }
-    
+
     skill_class = skill_classes.get(skill_name)
     if skill_class:
         return skill_class()

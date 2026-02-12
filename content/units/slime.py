@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from unit import Unit, UnitType, PassiveSkill
+from unit import Unit, UnitType
 from skill import Skill
 from status_effect import DamageOverTimeEffect
 
@@ -34,21 +34,6 @@ class Slime(Unit):
             poison = DamageOverTimeEffect("Slime Poison", 3.0, 10.0, "magical")
             poison.source = self
             target.add_status_effect(poison)
-
-    def get_available_passive_skills(self) -> list:
-        return [
-            PassiveSkill.SPLIT,
-            PassiveSkill.TOXIC_BODY,
-            PassiveSkill.REGENERATE
-        ]
-
-    def get_passive_skill_cost(self, skill_name) -> int:
-        costs = {
-            PassiveSkill.SPLIT: 30,
-            PassiveSkill.TOXIC_BODY: 25,
-            PassiveSkill.REGENERATE: 25,
-        }
-        return costs.get(skill_name, 30)
 
     @staticmethod
     def get_cost() -> int:
@@ -116,104 +101,12 @@ class Mitosis(Skill):
         return None
 
 
-class Split(Skill):
-    """On death, spawn 2 smaller slimes"""
-    def __init__(self):
-        super().__init__("Split", "On death, spawn 2 smaller slimes")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.SPLIT
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "death" and kwargs.get("dying_unit") == owner:
-            self.spawn_mini_slimes()
-
-    def spawn_mini_slimes(self):
-        owner = self.owner
-        if not owner or not owner.board:
-            return
-
-        for _ in range(2):
-            position = self._find_nearby_position(owner)
-            if not position:
-                continue
-
-            # Create mini slime
-            mini = Slime()
-            mini.max_hp = int(owner.max_hp * 0.4)  # 40% HP
-            mini.hp = mini.max_hp
-            mini.attack_damage = int(owner.attack_damage * 0.4)  # 40% damage
-            mini.is_summoned = True
-            mini.summoner = owner
-
-            owner.board.add_unit(mini, position[0], position[1], owner.team)
-
-    def _find_nearby_position(self, unit):
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                x, y = unit.x + dx, unit.y + dy
-                if 0 <= x < 8 and 0 <= y < 8:
-                    if not unit.board.get_unit_at(x, y):
-                        if unit.team == "player" and x < 4:
-                            return (x, y)
-                        elif unit.team == "enemy" and x >= 4:
-                            return (x, y)
-        return None
-
-
-class ToxicBody(Skill):
-    """Enemies that attack this unit are poisoned"""
-    def __init__(self):
-        super().__init__("Toxic Body", "Enemies that attack this unit are poisoned")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.TOXIC_BODY
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_attack" and kwargs.get("target") == owner:
-            attacker = kwargs.get("attacker")
-            if attacker and attacker.is_alive():
-                poison = DamageOverTimeEffect("Toxic Body", 5.0, 15.0, "magical")
-                poison.source = owner
-                attacker.add_status_effect(poison)
-
-
-class Regenerate(Skill):
-    """Regenerate 3% max HP per second"""
-    def __init__(self):
-        super().__init__("Regenerate", "Regenerate 3% max HP per second")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.REGENERATE
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-
-    def apply_to_owner(self, owner):
-        # Add 3% of max_hp to hp_regen per second
-        owner.hp_regen += owner.max_hp * 0.03
-
-
 def create_slime_skill(skill_name) -> Skill:
     skill_classes = {
         "mitosis": Mitosis,
-        PassiveSkill.SPLIT: Split,
-        PassiveSkill.TOXIC_BODY: ToxicBody,
-        PassiveSkill.REGENERATE: Regenerate,
     }
 
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-
+    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
     if skill_class:
         return skill_class()
     return None

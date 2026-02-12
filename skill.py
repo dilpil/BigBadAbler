@@ -5,8 +5,6 @@ class Skill:
         self.name = name
         self.description = description
         self.owner = None
-        self.skill_enum = None  # For passive skills, set to PassiveSkill enum
-        
         self.is_passive = False
         self.cast_time = 1.0
         self.mana_cost = 100  # Amount of mana needed to cast
@@ -105,24 +103,3 @@ class Skill:
 
         return minion
     
-    def apply_to_owner(self, owner):
-        """For passive skills - apply when owner is set"""
-        self.owner = owner
-        
-    def remove_from_owner(self):
-        """For passive skills - remove when owner is cleared"""
-        self.owner = None
-    
-    def has_passive_skill(self, skill_name) -> bool:
-        """Check if the owner has a specific passive skill"""
-        if not self.owner:
-            return False
-        for passive in self.owner.passive_skills:
-            # Handle both string and enum comparisons
-            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_name:
-                return True
-            elif hasattr(skill_name, 'value') and passive.name.lower().replace(" ", "_") == skill_name.value:
-                return True
-            elif isinstance(skill_name, str) and passive.name.lower().replace(" ", "_") == skill_name.lower():
-                return True
-        return False

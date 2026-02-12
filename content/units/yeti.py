@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from unit import Unit, UnitType, PassiveSkill
+from unit import Unit, UnitType
 from skill import Skill
 from status_effect import StatusEffect, StatModifierEffect
 
@@ -25,21 +25,6 @@ class Yeti(Unit):
         default_skill = create_yeti_skill("deep_freeze")
         if default_skill:
             self.set_spell(default_skill)
-
-    def get_available_passive_skills(self) -> list:
-        return [
-            PassiveSkill.FROST_AURA,
-            PassiveSkill.PERMAFROST,
-            PassiveSkill.ICY_TOUCH
-        ]
-
-    def get_passive_skill_cost(self, skill_name) -> int:
-        costs = {
-            PassiveSkill.FROST_AURA: 45,
-            PassiveSkill.PERMAFROST: 40,
-            PassiveSkill.ICY_TOUCH: 35,
-        }
-        return costs.get(skill_name, 30)
 
     @staticmethod
     def get_cost() -> int:
@@ -109,94 +94,12 @@ class FreezeEffect(StatusEffect):
         unit.move_speed = self.stored_move_speed
 
 
-class FrostAura(Skill):
-    """Passive frost damage aura - enemies within 2 tiles take ice damage"""
-    def __init__(self):
-        super().__init__("Frost Aura", "Enemies within 2 tiles take 20 ice damage per second")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.FROST_AURA
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-        self.damage_per_second = 20
-        self.range = 2
-        self.tick_timer = 0
-        self.tick_interval = 0.5
-
-    def update(self, dt: float):
-        super().update(dt)
-        owner = getattr(self, 'owner', None)
-        if not owner or not owner.is_alive() or not owner.board:
-            return
-
-        self.tick_timer += dt
-        if self.tick_timer >= self.tick_interval:
-            self.tick_timer -= self.tick_interval
-            damage = self.damage_per_second * self.tick_interval
-
-            enemies = owner.board.get_enemy_units(owner.team)
-            for enemy in enemies:
-                if enemy.is_alive():
-                    distance = owner.board.get_distance(owner, enemy)
-                    if distance <= self.range:
-                        enemy.take_damage(damage, "ice", owner)
-
-
-class Permafrost(Skill):
-    """Attacks slow enemies by 20% for 3 seconds"""
-    def __init__(self):
-        super().__init__("Permafrost", "Attacks slow enemies by 20% attack and move speed for 3 seconds")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.PERMAFROST
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_attack" and kwargs.get("attacker") == owner:
-            target = kwargs.get("target")
-            if target and target.is_alive():
-                slow = StatModifierEffect("Permafrost", 3.0, {
-                    "attack_speed": -20,
-                    "move_speed": -0.4
-                })
-                slow.source = owner
-                target.add_status_effect(slow)
-
-
-class IcyTouch(Skill):
-    """Attacks deal bonus ice damage"""
-    def __init__(self):
-        super().__init__("Icy Touch", "Attacks deal an additional 40 ice damage")
-        self.is_passive = True
-        self.skill_enum = PassiveSkill.ICY_TOUCH
-        self.cast_time = None
-        self.mana_cost = 0
-        self.current_mana = 0
-        self.bonus_damage = 40
-
-    def on_event(self, event_type: str, **kwargs):
-        owner = getattr(self, 'owner', None)
-        if event_type == "unit_attack" and kwargs.get("attacker") == owner:
-            target = kwargs.get("target")
-            if target and target.is_alive():
-                target.take_damage(self.bonus_damage, "ice", owner)
-
-
 def create_yeti_skill(skill_name) -> Skill:
     skill_classes = {
         "deep_freeze": DeepFreeze,
-        PassiveSkill.FROST_AURA: FrostAura,
-        PassiveSkill.PERMAFROST: Permafrost,
-        PassiveSkill.ICY_TOUCH: IcyTouch,
     }
 
-    if isinstance(skill_name, str):
-        skill_class = skill_classes.get(skill_name.lower())
-    else:
-        skill_class = skill_classes.get(skill_name)
-
+    skill_class = skill_classes.get(skill_name.lower() if isinstance(skill_name, str) else skill_name)
     if skill_class:
         return skill_class()
     return None

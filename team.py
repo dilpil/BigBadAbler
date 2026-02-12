@@ -59,10 +59,6 @@ class Team:
         """Get the cost for the next unit purchase (escalating)"""
         return 40 + (self.units_purchased * 20)
     
-    def get_passive_cost(self, unit: Unit) -> int:
-        """Get the cost for the next passive skill for a unit (escalating)"""
-        return 30 + (len(unit.passive_skills) * 20)
-    
     def find_empty_position(self) -> Optional[tuple]:
         """Find an empty position on the team's side of the board"""
         if not self.board:
@@ -158,55 +154,6 @@ class Team:
         
         return 0
     
-    def buy_random_passive(self, remaining_budget: int, game=None) -> int:
-        """Try to buy a random passive skill for a random unit. Returns cost spent (0 if failed)."""
-        import random
-        
-        # Find eligible units (units with < 5 passive skills)
-        eligible_units = [unit for unit in self.units if len(unit.passive_skills) < 5]
-        if not eligible_units:
-            return 0
-        
-        # Pick a random unit
-        unit = random.choice(eligible_units)
-        skill_cost = self.get_passive_cost(unit)
-        
-        # Check if we can afford a passive
-        if remaining_budget < skill_cost:
-            return 0
-        
-        # Get available passive skills for this unit
-        if not hasattr(unit, 'get_available_passive_skills'):
-            return 0
-            
-        available_passives = unit.get_available_passive_skills()
-        if not available_passives:
-            return 0
-        
-        # Filter out skills the unit already has
-        eligible_passives = []
-        for passive_skill in available_passives:
-            skill_name = passive_skill.value if hasattr(passive_skill, 'value') else str(passive_skill)
-            has_skill = any(existing.name.lower().replace(" ", "_") == skill_name.lower().replace(" ", "_")
-                          for existing in unit.passive_skills)
-            if not has_skill:
-                eligible_passives.append(passive_skill)
-        
-        if not eligible_passives:
-            return 0
-        
-        # Buy a random passive skill
-        skill_to_buy = random.choice(eligible_passives)
-        from skill_factory import create_skill
-        skill = create_skill(skill_to_buy)
-        
-        if skill and unit.add_passive_skill(skill):
-            if game:
-                game.add_message(f"Enemy bought {skill.name} for {unit.name} for {skill_cost} gold")
-            return skill_cost
-        
-        return 0
-    
     def buy_random_augment(self, remaining_budget: int, game=None) -> int:
         """Try to buy a random augment from the pool. Returns cost spent (0 if failed)."""
         import random
@@ -277,21 +224,17 @@ class Team:
             attempts += 1
             
             # Randomly choose what to buy
-            # Weighted: 50% units, 25% passives, 25% augments
+            # Weighted: 65% units, 35% augments
             choice = random.choices(
-                ['unit', 'passive', 'augment'],
-                weights=[0.5, 0.25, 0.25],
+                ['unit', 'augment'],
+                weights=[0.65, 0.35],
                 k=1
             )[0]
-            
+
             cost_spent = 0
-            
+
             if choice == 'unit':
                 cost_spent = self.buy_random_unit(remaining_budget, game)
-            elif choice == 'passive':
-                # Only try to buy passives if we have units
-                if self.units:
-                    cost_spent = self.buy_random_passive(remaining_budget, game)
             elif choice == 'augment':
                 cost_spent = self.buy_random_augment(remaining_budget, game)
             

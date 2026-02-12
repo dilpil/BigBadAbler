@@ -4,19 +4,18 @@ However, instead of being based on high randomness and variance, the player must
 
 ### Progression
 
-Each round the player gets gold to spend on characters, items, abilities, and augments.
+Each round the player gets gold to spend on characters, items, and augments.
 All purchases come from a rotating 10-slot shop that refreshes each round.
 
 **Shop Slot Distribution:**
 - Slots 1-2: Always characters
 - Slot 3: Always an item
-- Slots 4-10: Random (15% character, 20% item, 20% ability upgrade, 35% augment)
+- Slots 4-10: Random (20% character, 30% item, 40% augment, 10% rare unit)
 
 The shop can be rerolled for 20 gold.
-Each character has a unique starting ability and a pool of abilities that can appear in the shop.
-Characters have a maximum of 5 abilities and 3 items.
-Items can be moved between characters each round, abilities cannot.
-Upgrades can be purchased even without a valid unit - they are stored as "pending" until a valid unit is acquired.
+Each character has a unique starting ability.
+Characters have a maximum of 3 items.
+Items can be moved between characters each round.
 
 The player starts with 5 lives.  Losing a round subtracts 1 life.
 Losing all lives results in a defeat.
@@ -28,7 +27,7 @@ After each round, all player units and spells are reset (original positions, max
 ### Combat
 
 Each round, the players team fights an enemy team.
-During the shopping phase, the player can see information about the enemy team- unit positioning, items and abilities equipped, ect.
+During the shopping phase, the player can see information about the enemy team- unit positioning, items equipped, ect.
 The player can position their units in whatever way he sees fit each round.
 Combat is done in real time, and once it begins, the player has no input into how it plays out.
 For more details, see Combat.MD
@@ -77,18 +76,16 @@ Units will always prefer to attack whatever unit they attacked previously, if po
 
 ### Skills
 
-Skills have the following stats:
+Each unit has one active skill (spell). Skills have the following stats:
 
-Passive: boolean value for if the skill is passive or not, defaults to true.
-Cast Time: time in seconds required to cast the skill (if it is castable- default to None for passive skills)
-Cooldown Time: time in seconds the skill cannot be cast after it is cast.  The skill is 'on cooldown' during this time.  Generally None for passive skills, but can be used for internal cooldown mechanisms for passive skills.
-Mana Cost: Amount of mana required to cast the skill.  None for passive skills.
+Cast Time: time in seconds required to cast the skill.
+Mana Cost: Amount of mana required to cast the skill.
 
 When a unit starts to cast a spell, the mana cost is immediately deducted.
 
-By default, a spell will execute effects once the unit has spend the entire cast time casting(channeling) the spell.  However, there are some spells that perform effects while the spell is being channeled.
+By default, a spell will execute effects once the unit has spent the entire cast time casting(channeling) the spell.  However, there are some spells that perform effects while the spell is being channeled.
 
-All skills, active or passive, can have triggers that activate in response to events (damage, death, summon, attack, ect).
+Skills can have triggers that activate in response to events (damage, death, summon, attack, ect).
 
 ### Files
 
@@ -98,9 +95,9 @@ skill.py - maintains the state of one skill.
 game.py - maintains the state of one game run.  Knows the players owned units, items, gold, health, current level, current game mode, ect.
 PyUI.py - pygame UI for the game.  Contains all visual rendering logic.
 
-content/units.py - factory methods for each available character (unit type)
-content/skills.py - class for each skill, list of factory methods for each available skill
+content/units/ - one file per unit type, containing the unit class, its skill classes, and factory methods
 content/items.py - class for each item, list of factory methods for each available item
+skill_factory.py - central factory that routes skill creation to unit-specific factories
 
 ### Time and Framerate
 
@@ -143,19 +140,16 @@ During the shopping phase, the bottom panel displays the 10-slot shop.
 **Shop Entry Types:**
 - Characters: Colored with unit type color, first letter of unit name
 - Items: Blue color, "I" letter
-- Upgrades: Magenta color, "S" letter
 - Augments: Purple color, "A" letter
 - Rare Units: Gold color, "U" letter
 
 **Purchasing Flow:**
 - Click a character entry, then click an empty board tile to place it
-- Click an upgrade entry, then click a valid unit to apply it (or it becomes pending)
 - Click an item entry to add it to unequipped items, then click a unit to equip
 - Click an augment entry to purchase it directly
 
 A Reroll button in the shop panel allows refreshing all 10 slots for 20 gold.
-Clicking a placed unit opens the upgrade shop to view/manage its abilities and items.
-Items, characters, and abilities that cannot be purchased due to lack of funds are greyed out.
+Items and characters that cannot be purchased due to lack of funds are greyed out.
 
 # Combat Visuals
 

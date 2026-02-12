@@ -1030,14 +1030,14 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
     # Slot 2: Always an item
     shop.append(gen_item())
 
-    # Slots 3-9: Random with weights (15% char, 30% item, 45% augment, 10% rare)
+    # Slots 3-9: Random with weights (20% char, 30% item, 40% augment, 10% rare)
     for _ in range(7):
         roll = random.random()
-        if roll < 0.15:  # 15% character
+        if roll < 0.20:  # 20% character
             shop.append(gen_character())
-        elif roll < 0.45:  # 30% item
+        elif roll < 0.50:  # 30% item
             shop.append(gen_item())
-        elif roll < 0.90:  # 45% passive augment
+        elif roll < 0.90:  # 40% augment
             shop.append(gen_augment())
         else:  # 10% rare unit augment (dragon, etc)
             shop.append(DragonAugment())

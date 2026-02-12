@@ -232,28 +232,6 @@ class PyUI:
         """Get the color for an item"""
         return self.colors.get(item_name.lower(), (100, 100, 100))
     
-    def _get_skill_color(self, skill_name):
-        """Get the color for a skill based on its name"""
-        # Map different skill types to different colors
-        skill_colors = {
-            # Necromancer skills - dark/purple theme
-            'hunger': (150, 0, 150),
-            'bone shards': (200, 200, 200),
-            'undead horde': (100, 50, 100),
-            'burning bones': (255, 100, 0),
-            'grave chill': (0, 150, 200),
-            'bone fragments': (180, 180, 180),
-            'bone sabers': (220, 220, 220),
-            
-            # Paladin skills - gold/holy theme
-            'smite': (255, 220, 0),
-            'protection': (200, 150, 0),
-            'lay hands on': (255, 200, 100),
-            'holy thunder': (255, 255, 150),
-            'healing aura': (150, 255, 150),
-        }
-        return skill_colors.get(skill_name.lower(), (120, 80, 140))
-        
     def handle_event(self, event):
         # During POST_COMBAT phase, any key press or mouse click ends it
         if self.game.phase == GamePhase.POST_COMBAT:
@@ -986,23 +964,6 @@ class PyUI:
                 letter = self.get_item_letter(item.name)
                 text = self.fonts['tiny'].render(letter, True, self.colors['text'])
                 text_rect = text.get_rect(center=(item_x + 7, item_y + 7))
-                self.screen.blit(text, text_rect)
-        
-        # Draw passive skills as squares stacked vertically on right side
-        if unit.passive_skills:
-            for i, skill in enumerate(unit.passive_skills[:5]):  # Max 5 skills
-                skill_x = x + offset_x + self.tile_size - 16  # Right side
-                skill_y = y + offset_y + 4 + i * 16  # Stacked vertically
-                skill_color = self._get_skill_color(skill.name)
-                
-                # Draw colored square
-                pygame.draw.rect(self.screen, skill_color, (skill_x, skill_y, 14, 14))
-                pygame.draw.rect(self.screen, (255, 255, 255), (skill_x, skill_y, 14, 14), 1)
-                
-                # Draw skill letter (first letter of skill name)
-                letter = skill.name[0].upper() if skill.name else 'S'
-                text = self.fonts['tiny'].render(letter, True, self.colors['text'])
-                text_rect = text.get_rect(center=(skill_x + 7, skill_y + 7))
                 self.screen.blit(text, text_rect)
         
         # Draw status effects as circles above HP bar
@@ -1815,15 +1776,6 @@ class PyUI:
                 
             # No more cooldowns to show
                 
-        if unit.passive_skills:
-            lines.append("")
-            lines.append("UPGRADES:")
-            for passive in unit.passive_skills:
-                lines.append(f"• {passive.name}")
-                # Add passive skill description if available
-                if hasattr(passive, 'description') and passive.description:
-                    lines.append(f"  {passive.description}")
-                
         if unit.items:
             lines.append("")
             lines.append("ITEMS:")
@@ -1913,42 +1865,6 @@ class PyUI:
                     
         return '\n'.join(lines)
     
-    def create_ability_tooltip(self, skill_name):
-        """Create tooltip for abilities in the upgrade shop"""
-        if not self.selected_unit:
-            return ""
-            
-        skill = self.game.create_skill(skill_name)
-        if not skill:
-            return ""
-            
-        cost = self.selected_unit.get_passive_skill_cost(skill_name)
-        # Handle both string and enum types
-        if hasattr(skill_name, 'value'):
-            display_name = skill_name.value.replace("_", " ").title()
-        else:
-            display_name = str(skill_name).replace("_", " ").title()
-        
-        lines = [
-            f"{display_name}",
-            f"Cost: {cost} gold",
-            ""
-        ]
-        
-        if hasattr(skill, 'description') and skill.description:
-            lines.append(skill.description)
-            lines.append("")
-            
-        # Add any skill-specific stats or effects
-        if hasattr(skill, 'damage') and skill.damage:
-            lines.append(f"Damage: {skill.damage}")
-        if hasattr(skill, 'range') and skill.range:
-            lines.append(f"Range: {skill.range}")
-        if hasattr(skill, 'cooldown_time') and skill.cooldown_time:
-            lines.append(f"Cooldown: {skill.cooldown_time}s")
-            
-        return '\n'.join(lines)
-
     def draw_combat_result_banner(self):
         """Draw victory or defeat banner during post-combat phase"""
         if not hasattr(self.game, 'combat_result') or not self.game.combat_result:

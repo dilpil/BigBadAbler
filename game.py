@@ -140,36 +140,6 @@ class Game:
             
         return False
     
-    def purchase_passive_skill(self, unit: Unit, skill_name: str) -> bool:
-        """Purchase a passive skill for a unit"""
-        # Escalating cost: 30 + 20 for each existing passive
-        cost = self.player_team.get_passive_cost(unit)
-        if self.gold < cost:
-            return False
-            
-        # Check if unit already has this passive skill (handle both string and enum)
-        for passive in unit.passive_skills:
-            if hasattr(passive, 'skill_enum') and passive.skill_enum == skill_name:
-                return False
-            elif hasattr(skill_name, 'value') and passive.name.lower().replace(" ", "_") == skill_name.value:
-                return False
-            elif isinstance(skill_name, str) and passive.name.lower().replace(" ", "_") == skill_name.lower():
-                return False
-                
-        skill = self.create_skill(skill_name)
-        if not skill:
-            return False
-            
-        if unit.add_passive_skill(skill):
-            self.gold -= cost
-            self.add_message(f"Purchased {skill.name} for {unit.name} for {cost} gold")
-            # Play purchase sound
-            if hasattr(self, 'ui') and self.ui:
-                self.ui.play_sound('buy')
-            return True
-            
-        return False
-    
     def purchase_augment(self, augment_index: int) -> bool:
         """Purchase an augment from the shop (for traditional augments like PassiveAugment, ItemAugment, UnitAugment)"""
         from content.augments import CharacterShopEntry

@@ -22,84 +22,6 @@ class UnitType(Enum):
     YETI = "yeti"
     SLIME = "slime"
 
-class PassiveSkill(Enum):
-    # Necromancer passives
-    HUNGER = "hunger"
-    BONE_SHARDS = "bone_shards"
-    UNDEAD_HORDE = "undead_horde"
-    BURNING_BONES = "burning_bones"
-    GRAVE_CHILL = "grave_chill"
-    BONE_FRAGMENTS = "bone_fragments"
-    BONE_SABERS = "bone_sabers"
-    
-    # Paladin passives
-    SMITE = "smite"
-    PROTECTION = "protection"
-    LAY_HANDS_ON = "lay_hands_on"
-    HOLY_THUNDER = "holy_thunder"
-    HEALING_AURA = "healing_aura"
-    
-    # Berserker passives
-    FAST_FRENZY = "fast_frenzy"
-    HUNGRY_FRENZY = "hungry_frenzy"
-    IMMORTAL_FRENZY = "immortal_frenzy"
-    LEAP = "leap"
-    FRENZY_CRY = "frenzy_cry"
-    RIPPER = "ripper"
-    CLEAVE = "cleave"
-    
-    # Pyromancer passives
-    FIRESTORM = "firestorm"
-    BIG_FIREBALL = "big_fireball"
-    SHRAPNEL = "shrapnel"
-    FLAME_BATH = "flame_bath"
-    FLAMESHOCK = "flameshock"
-    FLAMEBOLTS = "flamebolts"
-    FLAMEPROOF_AURA = "flameproof_aura"
-    
-    # Cleric passives
-    ARMOR_BLESSING = "armor_blessing"
-    DOUBLE_HEAL = "double_heal"
-    EMPOWERED_HEAL = "empowered_heal"
-    HOLY_SMITE = "holy_smite"
-    BATTLE_HEAL = "battle_heal"
-    MASS_HEAL = "mass_heal"
-    CLEANSE = "cleanse"
-    
-    # Assassin passives
-    EVASION = "evasion"
-    KNIFE_TOSS = "knife_toss"
-    TURBO = "turbo"
-    POISON = "poison"
-    AETHER_SWAP = "aether_swap"
-    SOUL_REAPING = "soul_reaping"
-    CRIT = "crit"
-
-    # Magic Knight passives
-    MIRROR_IMAGE = "mirror_image"
-    ARCANE_BLADE = "arcane_blade"
-    SPELL_SHIELD = "spell_shield"
-
-    # Wizard passives
-    FIRE_SPLASH = "fire_splash"
-    CHAIN_MASTERY = "chain_mastery"
-    ARCANE_POWER = "arcane_power"
-
-    # Ogre Shaman passives
-    BLOOD_BOND = "blood_bond"
-    WAR_DRUMS = "war_drums"
-    TRIBAL_MIGHT = "tribal_might"
-
-    # Yeti passives
-    FROST_AURA = "frost_aura"
-    PERMAFROST = "permafrost"
-    ICY_TOUCH = "icy_touch"
-
-    # Slime passives
-    SPLIT = "split"
-    TOXIC_BODY = "toxic_body"
-    REGENERATE = "regenerate"
-
 class Unit:
     _next_id = 0
     
@@ -136,7 +58,6 @@ class Unit:
         self.attack_timer = 0
         
         self.spell = None
-        self.passive_skills = []  # List of passive skills
         self.items = []
         self.status_effects = []
         
@@ -513,11 +434,6 @@ class Unit:
         if self.spell:
             self.spell.current_mana = 0
             
-        # Reset passive skills (they don't have mana but may need reset)
-        for passive in self.passive_skills:
-            if hasattr(passive, 'reset'):
-                passive.reset()
-        
         # Reset items - remove and re-apply to clear temporary bonuses
         items_to_reset = self.items.copy()  # Copy list to avoid modification during iteration
         for item in items_to_reset:
@@ -555,21 +471,10 @@ class Unit:
             spell.current_mana = 0  # Start with 0 mana
         return True
     
-    def add_passive_skill(self, skill):
-        """Add a passive skill to the unit"""
-        if skill and skill not in self.passive_skills:
-            self.passive_skills.append(skill)
-            skill.owner = self
-            skill.apply_to_owner(self)
-            return True
-        return False
-    
     def iter_skills(self):
-        """Iterate over all skills - active spell first, then passive skills"""
+        """Iterate over all skills"""
         if self.spell:
             yield self.spell
-        for passive in self.passive_skills:
-            yield passive
     
     def add_item(self, item):
         if len(self.items) >= 3:
@@ -627,7 +532,6 @@ class Unit:
             "hp": self.max_hp,
             "hp_regen": self.hp_regen,
             "mp_regen": self.mp_regen,
-            "passive_skills": len(self.passive_skills),
             "strength": self.strength,
             "intelligence": self.intelligence,
             "armor": self.armor,
@@ -650,15 +554,6 @@ class Unit:
                         stats[stat] += value
                         
         return stats
-    
-    # Unit-specific methods to be overridden by subclasses
-    def get_available_passive_skills(self) -> list:
-        """Get list of available passive skills for this unit"""
-        return []
-    
-    def get_passive_skill_cost(self, skill_name: str) -> int:
-        """Get the cost of a passive skill"""
-        return 30  # Default cost
     
     @staticmethod
     def get_cost() -> int:
