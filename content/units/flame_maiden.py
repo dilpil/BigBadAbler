@@ -46,9 +46,10 @@ class FireChargePassive(Skill):
         if event_type == "damage_taken" and kwargs.get("source") == self.owner:
             damage_types = kwargs.get("damage_types", [])
             if DamageType.FIRE in damage_types:
-                self.charges += 1
-                if self.charges >= self.charge_threshold:
-                    self.charges = 0
+                damage = kwargs.get("damage", 0)
+                self.charges += damage
+                while self.charges >= self.charge_threshold:
+                    self.charges -= self.charge_threshold
                     self._heal_lowest_ally()
 
     def _heal_lowest_ally(self):
