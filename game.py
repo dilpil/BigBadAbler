@@ -119,7 +119,7 @@ class Game:
         return False
     
     def purchase_augment(self, augment_index: int) -> bool:
-        """Purchase an augment from the shop (for traditional augments like PassiveAugment, ItemAugment, UnitAugment)"""
+        """Purchase an augment from the shop (for PassiveAugment, UnitAugment)"""
         from content.augments import CharacterShopEntry
 
         if augment_index >= len(self.augment_shop):
@@ -182,27 +182,28 @@ class Game:
 
         return False
 
-    def purchase_item(self, item_name: str, unit: Unit) -> bool:
-        """Legacy method for direct item purchases (kept for compatibility)"""
-        # Check unequipped items first
-        item = None
-        for unequipped_item in self.player_team.unequipped_items:
-            if unequipped_item.name == item_name:
-                item = unequipped_item
-                break
-                
-        if not item:
-            return False
-            
-        if len(unit.items) >= 3:
-            return False
-            
-        if unit.add_item(item):
-            self.player_team.unequipped_items.remove(item)
-            self.add_message(f"Equipped {item.name} to {unit.name}")
-            return True
-            
-        return False
+    def purchase_item_entry(self, shop_index: int):
+        """Purchase an item from the shop and add it to the backpack."""
+        from content.augments import ItemShopEntry
+
+        if shop_index >= len(self.augment_shop):
+            return None
+
+        entry = self.augment_shop[shop_index]
+        if not isinstance(entry, ItemShopEntry):
+            return None
+
+        if self.gold < entry.cost:
+            return None
+
+        item = entry.create_item()
+        self.player_team.unequipped_items.append(item)
+        self.gold -= entry.cost
+        self.augment_shop.pop(shop_index)
+        self.add_message(f"Purchased {item.name} for {entry.cost} gold")
+        if hasattr(self, 'ui') and self.ui:
+            self.ui.play_sound('buy')
+        return item
     
     def start_combat(self):
         if self.phase != GamePhase.SHOPPING:

@@ -31,6 +31,25 @@ class CharacterShopEntry:
         return f"{self.name}\nCost: {self.cost}\nCharacter"
 
 
+class ItemShopEntry:
+    """An item available for purchase in the shop."""
+
+    def __init__(self, item_name):
+        self.item_name = item_name
+        # Create a temporary instance to get display info
+        item = create_item(item_name)
+        self.name = item.name
+        self.description = item.description
+        self.cost = item.cost
+
+    def create_item(self):
+        """Create a fresh item instance for purchase."""
+        return create_item(self.item_name)
+
+    def get_tooltip(self):
+        return f"{self.name}\nCost: {self.cost}\n{self.description}"
+
+
 # Passive Augments
 
 class AttackBoostAugment(PassiveAugment):
@@ -1015,8 +1034,9 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
 
     # Helper to generate an item entry
     def gen_item():
-        item_types = get_all_item_augment_types()
-        return random.choice(item_types)()
+        from content.items import get_all_items
+        all_items = get_all_items()
+        return ItemShopEntry(random.choice(all_items))
 
     # Helper to generate a passive augment
     def gen_augment():
@@ -1046,7 +1066,7 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
     def sort_key(entry):
         if isinstance(entry, CharacterShopEntry):
             return 0  # Units first
-        elif isinstance(entry, ItemAugment):
+        elif isinstance(entry, ItemShopEntry):
             return 1  # Items second
         elif isinstance(entry, PassiveAugment):
             return 2  # Augments third

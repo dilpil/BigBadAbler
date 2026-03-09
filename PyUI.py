@@ -10,10 +10,11 @@ class ShopType(Enum):
 
 from content.unit_registry import create_unit, get_available_units, get_unit_cost
 from unit import UnitType
-from content.augments import generate_augment_shop, CharacterShopEntry
+from content.augments import generate_augment_shop, CharacterShopEntry, ItemShopEntry
 from visual_effects import EffectManager
 from visual_effect import VisualEffectType
 from constants import FPS
+from paths import resource_path
 
 class PyUI:
     def __init__(self):
@@ -127,12 +128,16 @@ class PyUI:
         self.shop_flash_timer = 0
         self.shop_flash_duration = 0.3
         self.selected_item = None
-        self.selected_item_index = None
         self.selected_item_source_unit = None  # Track which unit an item is being moved from
+        self.dragging_item = None  # Item currently being dragged
+        self.dragging_item_source_unit = None  # Unit the dragged item came from (None = backpack)
+        self.backpack_slots = []  # List of (rect, item) for click detection
 
-        # New shop entry selection (for character placement and upgrade application)
+        # Shop entry selection / dragging
         self.selected_shop_entry = None  # The shop entry being placed/applied
         self.selected_shop_entry_index = None  # Index in augment_shop
+        self.dragging_shop_entry = None  # Shop entry currently being dragged
+        self.dragging_shop_entry_index = None  # Its index in augment_shop
         self.hovered_tile = None  # (x, y) of tile being hovered over
         self.effect_manager = EffectManager()
         
@@ -154,11 +159,11 @@ class PyUI:
         self.sound_muted = True  # Set to False to enable sounds
         try:
             self.sounds = {
-                'death': pygame.mixer.Sound('soundFX/death_5.wav'),
-                'hit': pygame.mixer.Sound('soundFX/hit_4.wav'),
-                'spell': pygame.mixer.Sound('soundFX/sorcery_ally.wav'),
-                'buy': pygame.mixer.Sound('soundFX/menu_confirm.wav'),
-                'shop_close': pygame.mixer.Sound('soundFX/menu_abort.wav')
+                'death': pygame.mixer.Sound(resource_path('soundFX/death_5.wav')),
+                'hit': pygame.mixer.Sound(resource_path('soundFX/hit_4.wav')),
+                'spell': pygame.mixer.Sound(resource_path('soundFX/sorcery_ally.wav')),
+                'buy': pygame.mixer.Sound(resource_path('soundFX/menu_confirm.wav')),
+                'shop_close': pygame.mixer.Sound(resource_path('soundFX/menu_abort.wav'))
             }
         except pygame.error as e:
             print(f"Error loading sounds: {e}")
@@ -245,7 +250,11 @@ class PyUI:
                 self.handle_right_click(event.pos)
                 
         elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1 and self.dragging_unit:
+            if event.button == 1 and self.dragging_shop_entry:
+                self.handle_shop_entry_drop(event.pos)
+            elif event.button == 1 and self.dragging_item:
+                self.handle_item_drop(event.pos)
+            elif event.button == 1 and self.dragging_unit:
                 self.handle_drop(event.pos)
                 
         elif event.type == pygame.MOUSEMOTION:
@@ -267,43 +276,32 @@ class PyUI:
                 elif self.game.phase == GamePhase.COMBAT:
                     self.game.advance_one_frame()
             elif event.key == pygame.K_ESCAPE:
-                # Cancel item selection or close shop
-                if self.selected_item:
+                # Cancel drags/selections or close shop
+                if self.dragging_shop_entry:
+                    self.dragging_shop_entry = None
+                    self.dragging_shop_entry_index = None
+                elif self.dragging_item:
+                    self.dragging_item = None
+                    self.dragging_item_source_unit = None
+                elif self.selected_item:
                     self.selected_item = None
-                    self.selected_item_index = None
                     self.selected_item_source_unit = None
                 elif self.shop_open != ShopType.NONE:
                     self.shop_open = ShopType.NONE
                                     
     def handle_click(self, pos):
         x, y = pos
-        
-        # Check owned augments panel click (for selecting items)
+
+        # Check backpack click (for selecting items from backpack)
         if self.game.phase == GamePhase.SHOPPING:
-            if self.game.player_team.augments:
-                from augment import ItemAugment
-                for augment in self.game.player_team.augments:
-                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
-                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
-                            # Select the item for equipping/moving (whether equipped or not)
-                            self.selected_item = augment.item
-                            self.selected_item_index = None  # Not from shop
-                            
-                            # Check if item needs to be unequipped from a unit first
-                            for unit in self.game.board.player_units:
-                                if augment.item in unit.items:
-                                    self.selected_item_source_unit = unit
-                                    self.game.add_message(f"Selected {augment.item.name} from {unit.name} - click a unit to move")
-                                    return
-                            
-                            # Item is unequipped
-                            self.selected_item_source_unit = None
-                            self.game.add_message(f"Selected {augment.item.name} - click a unit to equip")
-                            return
-                        else:
-                            # Not an item augment - can't select it, do nothing
-                            return
-        
+            for slot_rect, item in self.backpack_slots:
+                if slot_rect.collidepoint(pos):
+                    if item:
+                        # Start dragging the item from backpack
+                        self.dragging_item = item
+                        self.dragging_item_source_unit = None  # From backpack
+                        return
+
         if self.shop_open != ShopType.NONE:
             if not self.is_click_in_shop(pos):
                 self.shop_open = ShopType.NONE
@@ -321,104 +319,46 @@ class PyUI:
         if 0 <= grid_x < 8 and 0 <= grid_y < 8:
             unit = self.game.board.get_unit_at(grid_x, grid_y)
             if unit and unit.team == "player" and self.game.phase == GamePhase.SHOPPING:
-                # If we have a selected item, try to equip it to this unit
-                if self.selected_item:
-                    if len(unit.items) < 3:
-                        # Check if item is being moved from another unit
-                        if self.selected_item_source_unit:
-                            # Remove from source unit first
-                            if self.selected_item in self.selected_item_source_unit.items:
-                                self.selected_item_source_unit.items.remove(self.selected_item)
-                                if unit.add_item(self.selected_item):
-                                    self.game.add_message(f"Moved {self.selected_item.name} from {self.selected_item_source_unit.name} to {unit.name}")
-                                else:
-                                    # Failed to add, restore to source
-                                    self.selected_item_source_unit.items.append(self.selected_item)
-                        # Check if it's an unequipped item
-                        elif self.selected_item in self.game.player_team.unequipped_items:
-                            if unit.add_item(self.selected_item):
-                                self.game.player_team.unequipped_items.remove(self.selected_item)
-                                self.game.add_message(f"Equipped {self.selected_item.name} to {unit.name}")
+                # Check if clicking on a unit's item square to start dragging it
+                item_clicked = self._get_item_at_pos(unit, x, y)
+                if item_clicked:
+                    self.dragging_item = item_clicked
+                    self.dragging_item_source_unit = unit
+                    return
 
-                        # Clear selection after successful equip
-                        self.selected_item = None
-                        self.selected_item_index = None
-                        self.selected_item_source_unit = None
-                elif self.selected_unit == unit:
-                    # Clicking the same unit again deselects it
-                    self.selected_unit = None
-                else:
-                    # Select the unit for movement
-                    self.selected_unit = unit
+                # Start dragging the unit
+                tile_x = self.board_x + unit.x * self.tile_size
+                tile_y = self.board_y + unit.y * self.tile_size
+                self.dragging_unit = unit
+                self.drag_offset = (x - tile_x, y - tile_y)
+                self.selected_unit = unit
             elif not unit and grid_x < 4 and self.game.phase == GamePhase.SHOPPING:
-                # Check if we have a selected character entry to place
-                if self.selected_shop_entry and isinstance(self.selected_shop_entry, CharacterShopEntry):
-                    if self.game.purchase_character_entry(self.selected_shop_entry_index, grid_x, grid_y):
-                        self.selected_shop_entry = None
-                        self.selected_shop_entry_index = None
-                        # Select the newly placed unit
-                        new_unit = self.game.board.get_unit_at(grid_x, grid_y)
-                        if new_unit:
-                            self.selected_unit = new_unit
-                elif self.selected_item:
-                    # Cancel item selection on empty tile click
-                    self.selected_item = None
-                    self.selected_item_index = None
-                    self.selected_item_source_unit = None
-                elif self.selected_unit:
-                    # Move selected unit to this position (only if tile is empty and on player side)
-                    existing_unit = self.game.board.get_unit_at(grid_x, grid_y)
-                    if not existing_unit and self.selected_unit.team == "player":
-                        if self.game.board.move_unit(self.selected_unit, grid_x, grid_y):
-                            self.game.add_message(f"Moved {self.selected_unit.name} to ({grid_x}, {grid_y})")
-                            # Deselect unit after successful move
-                            self.selected_unit = None
-                # No longer open unit shop on empty tile click - units come from the shop now
+                pass  # Empty tile - units are placed via drag and drop from shop
         else:
-            # Clicked outside the board - clear selections if in shopping phase
             if self.game.phase == GamePhase.SHOPPING:
                 self.selected_unit = None
-                if self.selected_item:
-                    self.selected_item = None
-                    self.selected_item_index = None
-                    self.selected_item_source_unit = None
                 
     def handle_right_click(self, pos):
-        # Check if right-clicking on selected unit's items to unequip
-        if self.selected_unit and hasattr(self, 'item_unequip_rects'):
-            for item_rect, item in self.item_unequip_rects:
-                if item_rect.collidepoint(pos):
-                    # Unequip the item
-                    if item in self.selected_unit.items:
-                        self.selected_unit.items.remove(item)
-                        self.game.player_team.unequipped_items.append(item)
+        # Right-click on a unit's item square to unequip to backpack
+        if self.game.phase == GamePhase.SHOPPING:
+            grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
+            if 0 <= grid_x < 8 and 0 <= grid_y < 8:
+                unit = self.game.board.get_unit_at(grid_x, grid_y)
+                if unit and unit.team == "player":
+                    item_clicked = self._get_item_at_pos(unit, pos[0], pos[1])
+                    if item_clicked and item_clicked in unit.items:
+                        unit.remove_item(item_clicked)
+                        self.game.player_team.unequipped_items.append(item_clicked)
+                        self.game.add_message(f"Unequipped {item_clicked.name} from {unit.name}")
                         return
 
-        # Check if right-clicking on owned augments panel (for unequipping items)
-        if self.game.phase == GamePhase.SHOPPING:
-            if self.game.player_team.augments:
-                from augment import ItemAugment
-                for augment in self.game.player_team.augments:
-                    if hasattr(augment, 'ui_rect') and augment.ui_rect.collidepoint(pos):
-                        if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
-                            # Find unit that has this item and unequip it
-                            for unit in self.game.board.player_units:
-                                if augment.item in unit.items:
-                                    unit.items.remove(augment.item)
-                                    self.game.player_team.unequipped_items.append(augment.item)
-                                    self.game.add_message(f"Unequipped {augment.item.name} from {unit.name}")
-                                    return
-
-        # Cancel shop entry selection on right click
+        # Cancel any drags/selections on right click
+        if self.dragging_shop_entry:
+            self.dragging_shop_entry = None
+            self.dragging_shop_entry_index = None
         if self.selected_shop_entry:
             self.selected_shop_entry = None
             self.selected_shop_entry_index = None
-
-        # Cancel item selection on right click
-        if self.selected_item:
-            self.selected_item = None
-            self.selected_item_index = None
-            self.selected_item_source_unit = None
 
         # Deselect unit on right click
         if self.selected_unit:
@@ -441,34 +381,160 @@ class PyUI:
     def handle_drop(self, pos):
         if not self.dragging_unit:
             return
-            
+
         grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
         if 0 <= grid_x < 8 and 0 <= grid_y < 8:
-            # Only allow player units to be positioned on their side (left side, x = 0-3)
+            # Only allow player units on left side (x = 0-3)
             if self.dragging_unit.team == "player" and grid_x >= 4:
-                # Player unit dropped on enemy side - not allowed
                 self.dragging_unit = None
                 return
-            
-            # Only allow enemy units to be positioned on their side (right side, x = 4-7)
+
+            # Only allow enemy units on right side (x = 4-7)
             if self.dragging_unit.team == "enemy" and grid_x < 4:
-                # Enemy unit dropped on player side - not allowed  
                 self.dragging_unit = None
                 return
-                
-            if not self.game.board.get_unit_at(grid_x, grid_y):
-                # For player dragging, update position instantly (no animation)
+
+            occupant = self.game.board.get_unit_at(grid_x, grid_y)
+            if occupant and occupant != self.dragging_unit and occupant.team == self.dragging_unit.team:
+                # Swap the two units
+                old_x, old_y = self.dragging_unit.x, self.dragging_unit.y
+                # Remove both from board
+                self.game.board.remove_unit(self.dragging_unit)
+                self.game.board.remove_unit(occupant)
+                # Place them in swapped positions
+                self.game.board.add_unit(self.dragging_unit, grid_x, grid_y, self.dragging_unit.team)
+                self.game.board.add_unit(occupant, old_x, old_y, occupant.team)
+                if self.game.phase == GamePhase.SHOPPING:
+                    self.dragging_unit.original_x = grid_x
+                    self.dragging_unit.original_y = grid_y
+                    occupant.original_x = old_x
+                    occupant.original_y = old_y
+                # Clear visual positions for both so they snap
+                for uid in [self.dragging_unit.id, occupant.id]:
+                    if uid in self.unit_visual_positions:
+                        del self.unit_visual_positions[uid]
+            elif not occupant:
+                # Move to empty tile
                 unit_id = self.dragging_unit.id
                 if unit_id in self.unit_visual_positions:
                     del self.unit_visual_positions[unit_id]
                 self.game.board.move_unit(self.dragging_unit, grid_x, grid_y)
-                # Update original position for player units during shopping phase
                 if self.game.phase == GamePhase.SHOPPING and self.dragging_unit.team == "player":
                     self.dragging_unit.original_x = grid_x
                     self.dragging_unit.original_y = grid_y
-                
+
         self.dragging_unit = None
-        
+
+    def _get_item_at_pos(self, unit, screen_x, screen_y):
+        """Check if a screen position hits one of a unit's item squares."""
+        if not unit.items:
+            return None
+        # Get unit's visual position
+        unit_id = unit.id
+        if unit_id in self.unit_visual_positions:
+            vx = self.unit_visual_positions[unit_id]['visual_x']
+            vy = self.unit_visual_positions[unit_id]['visual_y']
+        else:
+            vx = float(unit.x)
+            vy = float(unit.y)
+        ux = self.board_x + vx * self.tile_size
+        uy = self.board_y + vy * self.tile_size
+        for i, item in enumerate(unit.items[:3]):
+            item_x = ux + 2
+            item_y = uy + 4 + i * 16
+            if item_x <= screen_x <= item_x + 14 and item_y <= screen_y <= item_y + 14:
+                return item
+        return None
+
+    def handle_item_drop(self, pos):
+        """Handle dropping an item being dragged."""
+        if not self.dragging_item:
+            return
+
+        item = self.dragging_item
+        source_unit = self.dragging_item_source_unit
+
+        # Check if dropped on a player unit
+        grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
+        if 0 <= grid_x < 8 and 0 <= grid_y < 8:
+            target_unit = self.game.board.get_unit_at(grid_x, grid_y)
+            if target_unit and target_unit.team == "player" and len(target_unit.items) < 3:
+                if target_unit != source_unit:
+                    # Move item to target unit
+                    if source_unit:
+                        source_unit.remove_item(item)
+                    else:
+                        self.game.player_team.unequipped_items.remove(item)
+                    target_unit.add_item(item)
+                    src_name = source_unit.name if source_unit else "backpack"
+                    self.game.add_message(f"Moved {item.name} from {src_name} to {target_unit.name}")
+                    self.dragging_item = None
+                    self.dragging_item_source_unit = None
+                    return
+
+        # Check if dropped on backpack area
+        backpack_rect = self._get_backpack_panel_rect()
+        if backpack_rect and backpack_rect.collidepoint(pos):
+            if source_unit:
+                source_unit.remove_item(item)
+                self.game.player_team.unequipped_items.append(item)
+                self.game.add_message(f"Unequipped {item.name} to backpack")
+            # If already from backpack, just cancel
+            self.dragging_item = None
+            self.dragging_item_source_unit = None
+            return
+
+        # Dropped elsewhere - return item to source
+        self.dragging_item = None
+        self.dragging_item_source_unit = None
+
+    def handle_shop_entry_drop(self, pos):
+        """Handle dropping a shop entry (character or item) being dragged."""
+        entry = self.dragging_shop_entry
+        index = self.dragging_shop_entry_index
+        self.dragging_shop_entry = None
+        self.dragging_shop_entry_index = None
+
+        if not entry or index is None:
+            return
+
+        # Verify entry is still in the shop at the expected index
+        if index >= len(self.game.augment_shop) or self.game.augment_shop[index] is not entry:
+            return
+
+        if isinstance(entry, CharacterShopEntry):
+            # Drop character on an empty player-side tile
+            grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
+            if 0 <= grid_x < 4 and 0 <= grid_y < 8:
+                if not self.game.board.get_unit_at(grid_x, grid_y):
+                    if self.game.purchase_character_entry(index, grid_x, grid_y):
+                        new_unit = self.game.board.get_unit_at(grid_x, grid_y)
+                        if new_unit:
+                            self.selected_unit = new_unit
+
+        elif isinstance(entry, ItemShopEntry):
+            # Drop item on a player unit to purchase and equip directly
+            grid_x, grid_y = self.screen_to_grid(pos[0], pos[1])
+            if 0 <= grid_x < 8 and 0 <= grid_y < 8:
+                target_unit = self.game.board.get_unit_at(grid_x, grid_y)
+                if target_unit and target_unit.team == "player" and len(target_unit.items) < 3:
+                    item = self.game.purchase_item_entry(index)
+                    if item:
+                        self.game.player_team.unequipped_items.remove(item)
+                        target_unit.add_item(item)
+                        self.game.add_message(f"Equipped {item.name} to {target_unit.name}")
+                    return
+
+            # Drop item on backpack area or elsewhere -> purchase to backpack
+            self.game.purchase_item_entry(index)
+
+    def _get_backpack_panel_rect(self):
+        """Return the rect for the backpack panel area."""
+        if self.game.phase != GamePhase.SHOPPING:
+            return None
+        shop_y = self.height - 160
+        return pygame.Rect(10, shop_y + 5, 220, 150)
+
     def handle_mouse_motion(self, pos):
         # Reset shop hover state
         self.shop_hover_unit = None
@@ -541,12 +607,23 @@ class PyUI:
                     if aug_x <= pos[0] <= aug_x + augment_width:
                         # Handle different entry types for tooltips
                         if isinstance(entry, CharacterShopEntry):
-                            # Create a temporary unit for tooltip
                             self.tooltip_unit = create_unit(entry.unit_type)
                             self.tooltip_type = "shop_unit"
+                        elif isinstance(entry, ItemShopEntry):
+                            # Create temp item for tooltip
+                            self.tooltip_item = entry.create_item()
+                            self.tooltip_type = "item"
                         else:
                             self.tooltip_augment = entry
                             self.tooltip_type = "augment"
+                        return
+
+            # Check backpack tooltip
+            if self.game.phase == GamePhase.SHOPPING:
+                for slot_rect, item in self.backpack_slots:
+                    if item and slot_rect.collidepoint(pos):
+                        self.tooltip_item = item
+                        self.tooltip_type = "item"
                         return
                 
     def handle_shop_click(self, pos):
@@ -583,13 +660,15 @@ class PyUI:
         shop_y = self.height - 160
 
         # Check reroll button click
-        reroll_x = 50
-        reroll_y = shop_y + 40
+        reroll_x = 250
+        reroll_y = shop_y + 120
         if reroll_x <= pos[0] <= reroll_x + 100 and reroll_y <= pos[1] <= reroll_y + 30:
             if self.game.reroll_shop(20):
-                # Clear any selection
+                # Clear any selection/drag
                 self.selected_shop_entry = None
                 self.selected_shop_entry_index = None
+                self.dragging_shop_entry = None
+                self.dragging_shop_entry_index = None
             # If can't afford reroll, just do nothing
             return
 
@@ -603,28 +682,15 @@ class PyUI:
         for i, entry in enumerate(self.game.augment_shop):
             aug_x = start_x + i * (augment_width + augment_spacing)
             if aug_x <= pos[0] <= aug_x + augment_width:
-                from augment import ItemAugment, UnitAugment
-
-                from augment import PassiveAugment
+                from augment import UnitAugment, PassiveAugment
 
                 if self.game.gold >= entry.cost:
-                    # Handle different entry types
-                    if isinstance(entry, CharacterShopEntry):
-                        # Select this character for placement
-                        self.selected_shop_entry = entry
-                        self.selected_shop_entry_index = i
-                        self.game.add_message(f"Click an empty tile to place {entry.name}")
-
-                    elif isinstance(entry, ItemAugment):
-                        # Try to purchase - item goes to unequipped
-                        if self.game.purchase_augment(i):
-                            if hasattr(entry, 'item') and entry.item in self.game.player_team.unequipped_items:
-                                self.selected_item = entry.item
-                                self.selected_item_index = None
-                                self.game.add_message(f"Selected {entry.item.name} - click a unit to equip")
+                    if isinstance(entry, (CharacterShopEntry, ItemShopEntry)):
+                        # Start dragging the shop entry (purchase happens on drop)
+                        self.dragging_shop_entry = entry
+                        self.dragging_shop_entry_index = i
 
                     elif isinstance(entry, UnitAugment):
-                        # Rare unit augment - purchase and auto-place
                         if self.game.purchase_augment(i):
                             if self.game.board.player_units:
                                 newest_unit = self.game.board.player_units[-1]
@@ -632,12 +698,8 @@ class PyUI:
                                 self.game.add_message(f"Selected {newest_unit.name}")
 
                     else:
-                        # PassiveAugment or other - just purchase
                         self.game.purchase_augment(i)
                 else:
-                    # Not enough gold - flash the specific item icon red
-                    # But only for buyable types (characters, items, rare units)
-                    # PassiveAugments that can't be afforded just do nothing
                     if not isinstance(entry, PassiveAugment):
                         self.shop_item_flash_index = i
                         self.shop_item_flash_timer = self.augment_panel_flash_duration
@@ -805,7 +867,7 @@ class PyUI:
         self.draw_text_floaters()
         self.draw_ui()
         self.draw_owned_augments()
-        self.draw_item_connection_lines()
+        self.draw_backpack()
         self.draw_enemy_augments()
         self.effect_manager.draw(self.screen, self.fonts['small'])
         
@@ -815,9 +877,17 @@ class PyUI:
         if self.tooltip_type or self.tooltip:
             self.draw_tooltip()
             
+        if self.dragging_shop_entry:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            self._draw_dragged_shop_entry(mouse_x, mouse_y)
+
+        if self.dragging_item:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            self._draw_dragged_item(mouse_x, mouse_y)
+
         if self.dragging_unit:
             mouse_x, mouse_y = pygame.mouse.get_pos()
-            self.draw_unit_at(self.dragging_unit, mouse_x - self.drag_offset[0], 
+            self.draw_unit_at(self.dragging_unit, mouse_x - self.drag_offset[0],
                             mouse_y - self.drag_offset[1], alpha=128)
         
         # Draw victory/defeat banner during post-combat
@@ -1151,13 +1221,6 @@ class PyUI:
         
         if self.game.phase == GamePhase.SHOPPING:
             
-            # Show selected item info
-            if self.selected_item:
-                text = self.fonts['medium'].render(f"Selected: {self.selected_item.name}", True, (255, 200, 0))
-                self.screen.blit(text, (250, self.height - 200))
-                text = self.fonts['small'].render("Click a unit to equip", True, self.colors['text'])
-                self.screen.blit(text, (250, self.height - 170))
-            
             # Item shop panel
             shop_y = self.height - 160
             
@@ -1177,14 +1240,15 @@ class PyUI:
             pygame.draw.line(self.screen, border_color, 
                            (0, shop_y), (self.width, shop_y), 3)
             
+            # Shop title and reroll (positioned to the right of backpack)
             text = self.fonts['medium'].render("SHOP", True, self.colors['text'])
-            self.screen.blit(text, (50, shop_y + 10))
+            self.screen.blit(text, (250, shop_y + 10))
 
             # Draw reroll button
             reroll_cost = 20
             can_reroll = self.game.gold >= reroll_cost
-            reroll_x = 50
-            reroll_y = shop_y + 40
+            reroll_x = 250
+            reroll_y = shop_y + 120
             reroll_color = self.colors['button'] if can_reroll else self.colors['button_disabled']
             pygame.draw.rect(self.screen, reroll_color, (reroll_x, reroll_y, 100, 30))
             pygame.draw.rect(self.screen, self.colors['panel_border'], (reroll_x, reroll_y, 100, 30), 2)
@@ -1192,13 +1256,6 @@ class PyUI:
                                                      self.colors['text'] if can_reroll else (100, 100, 100))
             reroll_rect = reroll_text.get_rect(center=(reroll_x + 50, reroll_y + 15))
             self.screen.blit(reroll_text, reroll_rect)
-
-            # Show selected shop entry info
-            if self.selected_shop_entry:
-                if isinstance(self.selected_shop_entry, CharacterShopEntry):
-                    info_text = f"Click empty tile to place {self.selected_shop_entry.name}"
-                    text = self.fonts['small'].render(info_text, True, (255, 200, 0))
-                    self.screen.blit(text, (200, shop_y + 10))
 
             # Draw shop items (centered) - smaller for 10 items
             augment_width = 80  # Smaller width for 10 items
@@ -1213,7 +1270,8 @@ class PyUI:
 
                 # Determine entry type and display properties
                 can_afford = self.game.gold >= entry.cost
-                is_selected = (self.selected_shop_entry_index == i)
+                is_selected = (self.selected_shop_entry_index == i or
+                               self.dragging_shop_entry_index == i)
 
                 # Draw selection glow if selected
                 if is_selected:
@@ -1231,19 +1289,18 @@ class PyUI:
                 pygame.draw.rect(self.screen, border_color, (x, y, augment_width, augment_height), border_width)
 
                 # Determine entry type colors and letter
-                from augment import PassiveAugment, ItemAugment, UnitAugment
+                from augment import PassiveAugment, UnitAugment
 
                 if isinstance(entry, CharacterShopEntry):
-                    # Character entry - use unit type color
                     unit_type_name = entry.unit_type.name.lower()
                     aug_color = self.colors.get(unit_type_name, (100, 200, 100))
-                    aug_letter = entry.unit_type.name[0]  # First letter of unit type
-                elif isinstance(entry, PassiveAugment):
-                    aug_color = (150, 100, 200)  # Purple for passives
-                    aug_letter = 'A'  # Augment
-                elif isinstance(entry, ItemAugment):
+                    aug_letter = entry.unit_type.name[0]
+                elif isinstance(entry, ItemShopEntry):
                     aug_color = (100, 150, 200)  # Blue for items
                     aug_letter = 'I'
+                elif isinstance(entry, PassiveAugment):
+                    aug_color = (150, 100, 200)  # Purple for passives
+                    aug_letter = 'A'
                 elif isinstance(entry, UnitAugment):
                     aug_color = (200, 150, 100)  # Gold for rare units
                     aug_letter = 'U'
@@ -1310,149 +1367,195 @@ class PyUI:
                 y += 20
                 
     def draw_owned_augments(self):
-        """Draw owned augments stacked vertically on the left side"""
-        if not self.game.player_team.augments:
+        """Draw owned augments (non-item) stacked vertically on the left side"""
+        # Filter to only non-item augments
+        from augment import PassiveAugment, UnitAugment
+        augments = [a for a in self.game.player_team.augments
+                    if isinstance(a, (PassiveAugment, UnitAugment))]
+        if not augments:
             return
-            
-        # Import augment types
-        from augment import PassiveAugment, ItemAugment, UnitAugment
-        
-        # Panel dimensions
+
         panel_width = 200
-        panel_height = min(600, len(self.game.player_team.augments) * 60 + 40)
+        panel_height = min(600, len(augments) * 55 + 40)
         panel_x = 20
-        panel_y = 100  # Start below top UI panel
-        
-        # Draw background panel with flash effect if timer is active
-        if self.augment_panel_flash_timer > 0:
-            # Calculate flash intensity (fade out over time)
-            flash_intensity = self.augment_panel_flash_timer / self.augment_panel_flash_duration
-            # Blend between normal panel color and red based on intensity
-            panel_color = self._blend_colors(self.colors['panel_bg'], self.colors['panel_flash_red'], flash_intensity)
-            border_color = self._blend_colors(self.colors['panel_border'], (255, 100, 100), flash_intensity)
-        else:
-            panel_color = self.colors['panel_bg']
-            border_color = self.colors['panel_border']
-            
-        pygame.draw.rect(self.screen, panel_color, 
+        panel_y = 100
+
+        panel_color = self.colors['panel_bg']
+        border_color = self.colors['panel_border']
+
+        pygame.draw.rect(self.screen, panel_color,
                         (panel_x, panel_y, panel_width, panel_height))
-        pygame.draw.rect(self.screen, border_color, 
+        pygame.draw.rect(self.screen, border_color,
                         (panel_x, panel_y, panel_width, panel_height), 2)
-        
-        # Title
+
         title_text = self.fonts['medium'].render("AUGMENTS", True, self.colors['text'])
         self.screen.blit(title_text, (panel_x + 10, panel_y + 10))
-        
-        # Draw augments stacked vertically
-        for i, augment in enumerate(self.game.player_team.augments):
+
+        for i, augment in enumerate(augments):
             augment_y = panel_y + 40 + i * 55
             augment_rect = pygame.Rect(panel_x + 10, augment_y, panel_width - 20, 50)
-            
-            # Store rect for tooltip and click detection
             augment.ui_rect = augment_rect
-            
-            # Check if this is an equipped item augment
-            is_equipped = False
-            is_selected = False
-            if isinstance(augment, ItemAugment):
-                if hasattr(augment, 'is_equipped'):
-                    is_equipped = augment.is_equipped()
-                if hasattr(augment, 'item') and self.selected_item == augment.item:
-                    is_selected = True
-            
-            # Augment background - darker if equipped, highlighted if selected
-            if is_selected:
-                bg_color = (100, 100, 50)  # Yellow tint for selected
-            elif is_equipped:
-                bg_color = (40, 40, 60)  # Dark for equipped
-            else:
-                bg_color = self.colors['button']  # Normal
+
+            bg_color = self.colors['button']
             pygame.draw.rect(self.screen, bg_color, augment_rect)
-            
-            # Border - different colors for different states
-            if is_selected:
-                border_color = (255, 200, 0)  # Gold for selected
-                border_width = 3
-            elif is_equipped:
-                border_color = (100, 200, 100)  # Green for equipped
-                border_width = 2
-            else:
-                border_color = self.colors['panel_border']  # Normal
-                border_width = 1
-            pygame.draw.rect(self.screen, border_color, augment_rect, border_width)
-            
-            # Augment type indicator
+            pygame.draw.rect(self.screen, self.colors['panel_border'], augment_rect, 1)
+
             if isinstance(augment, PassiveAugment):
-                aug_color = (150, 100, 200)  # Purple for passives
+                aug_color = (150, 100, 200)
                 aug_letter = 'P'
-            elif isinstance(augment, ItemAugment):
-                aug_color = (100, 150, 200)  # Blue for items
-                aug_letter = 'I'
             elif isinstance(augment, UnitAugment):
-                aug_color = (200, 150, 100)  # Gold for units
+                aug_color = (200, 150, 100)
                 aug_letter = 'U'
             else:
-                aug_color = (150, 150, 150)  # Gray for unknown
+                aug_color = (150, 150, 150)
                 aug_letter = '?'
-            
-            # Draw type icon
+
             icon_size = 30
             icon_x = augment_rect.x + 5
             icon_y = augment_rect.y + 10
             pygame.draw.rect(self.screen, aug_color, (icon_x, icon_y, icon_size, icon_size))
-            
-            # Type letter
+
             letter_text = self.fonts['medium'].render(aug_letter, True, self.colors['text'])
             letter_rect = letter_text.get_rect(center=(icon_x + icon_size // 2, icon_y + icon_size // 2))
             self.screen.blit(letter_text, letter_rect)
-            
-            # Augment name (truncated if too long) - centered vertically in the box
+
             name = augment.name[:20] + '...' if len(augment.name) > 20 else augment.name
             name_text = self.fonts['small'].render(name, True, self.colors['text'])
-            # Center the name vertically in the augment rect
             name_y = augment_rect.y + (augment_rect.height - name_text.get_height()) // 2
             self.screen.blit(name_text, (icon_x + icon_size + 10, name_y))
     
-    def draw_item_connection_lines(self):
-        """Draw thin lines from ItemAugments to the units they are equipped on"""
+    def draw_backpack(self):
+        """Draw the backpack panel in the bottom-left showing unequipped items."""
         if self.game.phase != GamePhase.SHOPPING:
+            self.backpack_slots = []
             return
-            
-        from augment import ItemAugment
-        
-        # Only draw lines for ItemAugments that have their items equipped
-        for i, augment in enumerate(self.game.player_team.augments):
-            if isinstance(augment, ItemAugment) and hasattr(augment, 'item'):
-                # Find which unit has this item equipped
-                equipped_unit = None
-                for unit in self.game.board.player_units:
-                    if augment.item in unit.items:
-                        equipped_unit = unit
-                        break
+
+        panel_rect = self._get_backpack_panel_rect()
+        if not panel_rect:
+            return
+
+        # Draw panel background
+        pygame.draw.rect(self.screen, self.colors['panel_bg'], panel_rect)
+        pygame.draw.rect(self.screen, self.colors['panel_border'], panel_rect, 2)
+
+        # Title
+        title = self.fonts['small'].render("BACKPACK", True, self.colors['text'])
+        self.screen.blit(title, (panel_rect.x + 10, panel_rect.y + 5))
+
+        # Draw item slots in a grid (5 columns, 3 rows = 15 max)
+        slot_size = 36
+        slot_spacing = 4
+        cols = 5
+        start_x = panel_rect.x + 10
+        start_y = panel_rect.y + 25
+
+        items = self.game.player_team.unequipped_items
+        self.backpack_slots = []
+
+        for i in range(15):  # 15 slots
+            col = i % cols
+            row = i // cols
+            sx = start_x + col * (slot_size + slot_spacing)
+            sy = start_y + row * (slot_size + slot_spacing)
+            slot_rect = pygame.Rect(sx, sy, slot_size, slot_size)
+
+            # Draw slot background
+            if i < len(items):
+                item = items[i]
+                # Highlight if being dragged from here
+                if self.dragging_item == item and self.dragging_item_source_unit is None:
+                    pygame.draw.rect(self.screen, (60, 60, 30), slot_rect)
+                else:
+                    pygame.draw.rect(self.screen, (50, 30, 70), slot_rect)
+                pygame.draw.rect(self.screen, (100, 150, 200), slot_rect, 2)
+
+                # Draw item icon
+                item_color = self.get_item_color(item.name)
+                icon_rect = pygame.Rect(sx + 4, sy + 4, slot_size - 8, slot_size - 8)
+                pygame.draw.rect(self.screen, item_color, icon_rect)
+
+                # Item letter
+                letter = self.get_item_letter(item.name)
+                text = self.fonts['small'].render(letter, True, self.colors['text'])
+                text_rect = text.get_rect(center=icon_rect.center)
+                self.screen.blit(text, text_rect)
+
+                self.backpack_slots.append((slot_rect, item))
+            else:
+                # Empty slot
+                pygame.draw.rect(self.screen, (30, 15, 45), slot_rect)
+                pygame.draw.rect(self.screen, (60, 40, 80), slot_rect, 1)
+                self.backpack_slots.append((slot_rect, None))
+
+    def _draw_dragged_item(self, mouse_x, mouse_y):
+        """Draw the item being dragged at the mouse position."""
+        if not self.dragging_item:
+            return
+        item = self.dragging_item
+        size = 40
+        x = mouse_x - size // 2
+        y = mouse_y - size // 2
+
+        # Semi-transparent background
+        s = pygame.Surface((size, size), pygame.SRCALPHA)
+        item_color = self.get_item_color(item.name)
+        s.fill((*item_color, 180))
+        self.screen.blit(s, (x, y))
+        pygame.draw.rect(self.screen, (255, 255, 255), (x, y, size, size), 2)
+
+        # Item letter
+        letter = self.get_item_letter(item.name)
+        text = self.fonts['medium'].render(letter, True, self.colors['text'])
+        text_rect = text.get_rect(center=(mouse_x, mouse_y))
+        self.screen.blit(text, text_rect)
+
+        # Item name below
+        name_text = self.fonts['tiny'].render(item.name, True, (255, 200, 100))
+        name_rect = name_text.get_rect(center=(mouse_x, mouse_y + size // 2 + 10))
+        self.screen.blit(name_text, name_rect)
                 
-                if equipped_unit:
-                    # Calculate augment position (matching draw_owned_augments logic exactly)
-                    panel_x = 20
-                    panel_y = 100
-                    augment_rect_width = 180  # panel_width - 20 = 200 - 20
-                    augment_rect_height = 50
-                    augment_rect_x = panel_x + 10  # 30
-                    augment_rect_y = panel_y + 40 + i * 55  # 140 + i * 55
-                    
-                    # Start line from bottom-right corner of augment rect
-                    line_start_x = augment_rect_x + augment_rect_width  # 30 + 180 = 210
-                    line_start_y = augment_rect_y + augment_rect_height  # Y + 50
-                    
-                    # End line at center of unit
-                    unit_center_x = self.board_x + equipped_unit.x * self.tile_size + self.tile_size // 2
-                    unit_center_y = self.board_y + equipped_unit.y * self.tile_size + self.tile_size // 2
-                    
-                    # Draw thin line
-                    line_color = (100, 150, 200)  # Light blue
-                    pygame.draw.line(self.screen, line_color, 
-                                   (line_start_x, line_start_y), 
-                                   (unit_center_x, unit_center_y), 2)
-                
+    def _draw_dragged_shop_entry(self, mouse_x, mouse_y):
+        """Draw the shop entry being dragged at the mouse position."""
+        entry = self.dragging_shop_entry
+        if not entry:
+            return
+
+        size = self.tile_size - 4
+
+        if isinstance(entry, CharacterShopEntry):
+            # Draw as a unit ghost
+            x = mouse_x - size // 2
+            y = mouse_y - size // 2
+            unit_color = self.colors.get(entry.unit_type.name.lower(), (100, 200, 100))
+            s = pygame.Surface((size, size), pygame.SRCALPHA)
+            s.fill((0, 0, 0, 150))
+            self.screen.blit(s, (x, y))
+            pygame.draw.rect(self.screen, self.colors['player_border'], (x, y, size, size), 3)
+            letter = entry.unit_type.name[0].upper()
+            text = self.fonts['large'].render(letter, True, unit_color)
+            text_rect = text.get_rect(center=(mouse_x, mouse_y - 5))
+            self.screen.blit(text, text_rect)
+            # Name + cost
+            label = self.fonts['tiny'].render(f"{entry.name} ({entry.cost}g)", True, (255, 200, 100))
+            label_rect = label.get_rect(center=(mouse_x, mouse_y + size // 2 + 10))
+            self.screen.blit(label, label_rect)
+
+        elif isinstance(entry, ItemShopEntry):
+            # Draw as an item icon
+            item_size = 40
+            x = mouse_x - item_size // 2
+            y = mouse_y - item_size // 2
+            s = pygame.Surface((item_size, item_size), pygame.SRCALPHA)
+            s.fill((100, 150, 200, 180))
+            self.screen.blit(s, (x, y))
+            pygame.draw.rect(self.screen, (255, 255, 255), (x, y, item_size, item_size), 2)
+            text = self.fonts['medium'].render("I", True, self.colors['text'])
+            text_rect = text.get_rect(center=(mouse_x, mouse_y))
+            self.screen.blit(text, text_rect)
+            label = self.fonts['tiny'].render(f"{entry.name} ({entry.cost}g)", True, (255, 200, 100))
+            label_rect = label.get_rect(center=(mouse_x, mouse_y + item_size // 2 + 10))
+            self.screen.blit(label, label_rect)
+
     def draw_enemy_augments(self):
         """Draw enemy augments stacked vertically on the right side"""
         if not self.game.enemy_team.augments:
