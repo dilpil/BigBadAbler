@@ -1730,7 +1730,7 @@ class PyUI:
     def draw_tooltip(self):
         # Generate fresh tooltip content based on tooltip type
         tooltip_content = None
-        
+
         if self.tooltip_type == "unit" and self.tooltip_unit:
             tooltip_content = self.create_unit_tooltip(self.tooltip_unit)
         elif self.tooltip_type == "shop_unit" and self.tooltip_unit:
@@ -1742,122 +1742,139 @@ class PyUI:
         elif self.tooltip_type == "item" and self.tooltip_item:
             tooltip_content = self.create_item_tooltip(self.tooltip_item)
         elif self.tooltip:
-            # Fallback to old static tooltip system
             tooltip_content = self.tooltip
-        
+
         if not tooltip_content:
             return
-            
-        raw_lines = tooltip_content.split('\n')
-        max_tooltip_width = 350  # Maximum width for tooltips
-        
+
+        # Normalize to list of (text, color) tuples
+        if isinstance(tooltip_content, str):
+            raw_lines = [(line, None) for line in tooltip_content.split('\n')]
+        else:
+            raw_lines = tooltip_content
+
+        max_tooltip_width = 350
+
         # Process lines and handle text wrapping
-        lines = []
-        for raw_line in raw_lines:
-            if raw_line.strip():
-                # Wrap long lines
-                wrapped = self.wrap_text(raw_line, self.fonts['small'], max_tooltip_width - 20)
-                lines.extend(wrapped)
+        lines = []  # list of (text, color) tuples
+        for text, color in raw_lines:
+            if text.strip():
+                wrapped = self.wrap_text(text, self.fonts['small'], max_tooltip_width - 20)
+                for w in wrapped:
+                    lines.append((w, color))
             else:
-                lines.append('')  # Preserve empty lines
-        
-        # Calculate tooltip dimensions with proper padding
+                lines.append(('', color))
+
+        # Calculate tooltip dimensions
         max_width = 0
         line_heights = []
-        
-        for line in lines:
-            if line.strip():  # Non-empty line
-                text_width = self.fonts['small'].size(line)[0]
+
+        for text, color in lines:
+            if text.strip():
+                text_width = self.fonts['small'].size(text)[0]
                 max_width = max(max_width, text_width)
-                line_heights.append(20)  # Slightly more spacing for readability
-            else:  # Empty line
+                line_heights.append(20)
+            else:
                 line_heights.append(10)
-        
-        width = min(max_width + 30, max_tooltip_width)  # Use consistent max width
-        height = sum(line_heights) + 20  # More padding for better appearance
-        
+
+        width = min(max_width + 30, max_tooltip_width)
+        height = sum(line_heights) + 20
+
         mouse_x, mouse_y = pygame.mouse.get_pos()
-        
-        # Position tooltip to avoid going off screen
+
         x = mouse_x + 15
         y = mouse_y + 15
-        
+
         if x + width > self.width:
             x = mouse_x - width - 15
         if y + height > self.height:
             y = mouse_y - height - 15
-            
-        # Ensure tooltip stays on screen
+
         x = max(5, min(x, self.width - width - 5))
         y = max(5, min(y, self.height - height - 5))
-        
-        # Tooltip background with subtle border
+
+        # Tooltip background
         pygame.draw.rect(self.screen, (25, 15, 45), (x, y, width, height))
         pygame.draw.rect(self.screen, self.colors['panel_border'], (x, y, width, height), 2)
-        
-        # Tooltip text with better positioning
+
+        # Render lines
         current_y = y + 10
-        for i, line in enumerate(lines):
-            if line.strip():  # Non-empty line
-                # Determine original line type for coloring
-                # (Check against original lines to maintain color coding)
-                is_header = False
-                is_bullet = False
-                is_stat = False
-                is_description = False
-                
-                # Find which original line this wrapped line came from
-                for raw_line in raw_lines:
-                    if line in raw_line:
-                        if raw_line.startswith('•'):
-                            is_bullet = True
-                        elif raw_line.startswith('  ['):
-                            is_stat = True
-                        elif raw_line.startswith('  ') and not raw_line.startswith('  ['):
-                            is_description = True
-                        elif raw_line.isupper() and ':' in raw_line:
-                            is_header = True
-                        break
-                
-                # Choose font color based on content type
-                if is_bullet or line.startswith('•'):
-                    color = (255, 255, 100)  # Yellow for bullet points
-                elif is_stat:
-                    color = (150, 150, 200)  # Light blue for stats
-                elif is_description:
-                    color = (200, 200, 200)  # Light gray for descriptions
-                elif is_header:
-                    color = (255, 150, 255)  # Pink for section headers
-                else:
-                    color = self.colors['text']  # White for main text
-                    
-                text = self.fonts['small'].render(line, True, color)
-                self.screen.blit(text, (x + 15, current_y))
-                
+        for i, (text, color) in enumerate(lines):
+            if text.strip():
+                if color is None:
+                    color = self.colors['text']
+                rendered = self.fonts['small'].render(text, True, color)
+                self.screen.blit(rendered, (x + 15, current_y))
             current_y += line_heights[i]
             
+    def _format_damage_types_str(self, unit):
+        """Format attack damage types as a plain string."""
+        from unit import DamageType
+        if hasattr(unit, 'attack_damage_types') and unit.attack_damage_types:
+            return "/".join(dt.value.capitalize() for dt in unit.attack_damage_types)
+        return "Physical"
+
+    def _damage_type_color(self, unit):
+        """Get the color for the unit's primary attack damage type."""
+        from unit import DamageType, DAMAGE_TYPE_COLORS
+        if hasattr(unit, 'attack_damage_types') and unit.attack_damage_types:
+            return DAMAGE_TYPE_COLORS.get(unit.attack_damage_types[0], (255, 255, 255))
+        return (255, 255, 255)
+
+    def _format_affinities(self, unit):
+        """Format elemental affinities as (text, color) tooltip lines."""
+        from unit import ElementalAffinity, DAMAGE_TYPE_COLORS
+        if not hasattr(unit, 'affinities') or not unit.affinities:
+            return []
+        lines = []
+        immune = [dt for dt, aff in unit.affinities.items() if aff == ElementalAffinity.IMMUNE]
+        strong = [dt for dt, aff in unit.affinities.items() if aff == ElementalAffinity.STRONG]
+        vuln = [dt for dt, aff in unit.affinities.items() if aff == ElementalAffinity.VULNERABLE]
+        if immune:
+            names = ", ".join(dt.value.capitalize() for dt in immune)
+            lines.append((f"Immune: {names}", (200, 200, 255)))
+        if strong:
+            names = ", ".join(dt.value.capitalize() for dt in strong)
+            lines.append((f"Strong: {names}", (100, 200, 100)))
+        if vuln:
+            names = ", ".join(dt.value.capitalize() for dt in vuln)
+            lines.append((f"Vulnerable: {names}", (255, 100, 100)))
+        return lines
+
     def create_unit_tooltip(self, unit):
+        dmg_str = self._format_damage_types_str(unit)
+        dmg_color = self._damage_type_color(unit)
+        stat_color = (180, 180, 200)
+
         lines = [
-            f"{unit.name} ({unit.unit_type.value.capitalize()})",
-            f"HP: {int(unit.hp)}/{unit.max_hp} | MP Regen: {unit.mp_regen}/s",
-            f"AD: {unit.attack_damage} | Range: {unit.attack_range} | AS: {unit.attack_speed}%",
-            f"STR: {unit.strength} | INT: {unit.intelligence}",
-            f"Armor: {unit.armor} | Magic Resist: {unit.magic_resist}",
-            ""
+            (f"{unit.name}", (255, 255, 255)),
+            (f"HP: {int(unit.hp)}/{unit.max_hp}", stat_color),
+            (f"MP Regen: {unit.mp_regen}/s", stat_color),
+            (f"Attack: {unit.attack_damage} {dmg_str}", dmg_color),
+            (f"Range: {unit.attack_range}", stat_color),
+            (f"Attack Speed: {unit.attack_speed}%", stat_color),
+            (f"Strength: {unit.strength}", stat_color),
+            (f"Intelligence: {unit.intelligence}", stat_color),
+            (f"Armor: {unit.armor}", stat_color),
+            (f"Magic Resist: {unit.magic_resist}", stat_color),
         ]
-        
+
+        affinities = self._format_affinities(unit)
+        if affinities:
+            lines.append(('', None))
+            lines.extend(affinities)
+
+        lines.append(('', None))
+
         if unit.spell:
-            lines.append("SPELL:")
+            lines.append(("SPELL:", (255, 150, 255)))
             skill = unit.spell
-            lines.append(f"• {skill.name}")
-            
-            # Add skill description if available
+            lines.append((f"  {skill.name}", (255, 255, 100)))
+
             if hasattr(skill, 'description') and skill.description:
-                lines.append(f"  {skill.description}")
-            
-            # Add skill stats
+                lines.append((f"  {skill.description}", (200, 200, 200)))
+
             skill_stats = []
-            
             if skill.is_passive:
                 skill_stats.append("Passive")
             else:
@@ -1865,86 +1882,106 @@ class PyUI:
                     skill_stats.append(f"Cast: {skill.cast_time}s")
                 if hasattr(skill, 'mana_cost') and skill.mana_cost is not None and skill.mana_cost > 0:
                     skill_stats.append(f"Mana: {skill.mana_cost}")
-                    
-                # Show current mana
                 if hasattr(skill, 'current_mana'):
-                    lines.append(f"  Current Mana: {int(skill.current_mana)}/{skill.mana_cost}")
-            
+                    lines.append((f"  Mana: {int(skill.current_mana)}/{skill.mana_cost}", (100, 150, 255)))
+
             if hasattr(skill, 'range') and skill.range is not None:
                 skill_stats.append(f"Range: {skill.range}")
-                
+
             if skill_stats:
-                lines.append(f"  [{' | '.join(skill_stats)}]")
-                
-            # No more cooldowns to show
-                
+                lines.append((f"  [{', '.join(skill_stats)}]", (150, 150, 200)))
+
+            # Show passive ability
+            if hasattr(skill, 'passive') and skill.passive:
+                lines.append(('', None))
+                lines.append(("PASSIVE:", (255, 150, 255)))
+                lines.append((f"  {skill.passive.name}", (255, 255, 100)))
+                if hasattr(skill.passive, 'description') and skill.passive.description:
+                    lines.append((f"  {skill.passive.description}", (200, 200, 200)))
+
         if unit.items:
-            lines.append("")
-            lines.append("ITEMS:")
+            lines.append(('', None))
+            lines.append(("ITEMS:", (255, 150, 255)))
             for item in unit.items:
-                lines.append(f"• {item.name}")
+                lines.append((f"  {item.name}", (255, 255, 100)))
                 if hasattr(item, 'description') and item.description:
-                    lines.append(f"  {item.description}")
-                    
+                    lines.append((f"  {item.description}", (200, 200, 200)))
+
         if unit.status_effects:
-            lines.append("")
-            lines.append("STATUS EFFECTS:")
+            lines.append(('', None))
+            lines.append(("STATUS EFFECTS:", (255, 150, 255)))
             for status in unit.status_effects:
-                # Handle both None and missing remaining_duration
                 try:
                     if hasattr(status, 'remaining_duration') and status.remaining_duration is not None:
                         duration_text = f" ({status.remaining_duration:.1f}s)"
                     else:
-                        duration_text = ""  # Permanent effect
+                        duration_text = ""
                 except (TypeError, AttributeError):
-                    duration_text = ""  # Permanent effect
-                lines.append(f"• {status.name}{duration_text}")
-                
-        return '\n'.join(lines)
+                    duration_text = ""
+                lines.append((f"  {status.name}{duration_text}", (255, 255, 100)))
+
+        return lines
     
     def create_shop_unit_tooltip(self, unit):
         """Create tooltip for units in the shop showing their base stats"""
+        dmg_str = self._format_damage_types_str(unit)
+        dmg_color = self._damage_type_color(unit)
+        stat_color = (180, 180, 200)
+
         lines = [
-            f"{unit.name} ({unit.unit_type.value.capitalize()})",
-            f"Cost: {get_unit_cost(unit.unit_type)} gold",
-            "",
-            "BASE STATS:",
-            f"HP: {unit.max_hp} | MP Regen: {unit.mp_regen}/s",
-            f"Attack Damage: {unit.attack_damage}",
-            f"Attack Range: {unit.attack_range}",
-            f"Attack Speed: {unit.attack_speed}%",
-            f"Strength: {unit.strength} | Intelligence: {unit.intelligence}",
-            f"Armor: {unit.armor} | Magic Resist: {unit.magic_resist}",
-            ""
+            (f"{unit.name}", (255, 255, 255)),
+            (f"Cost: {get_unit_cost(unit.unit_type)} gold", (255, 215, 0)),
+            ('', None),
+            ("BASE STATS:", (255, 150, 255)),
+            (f"HP: {unit.max_hp}", stat_color),
+            (f"MP Regen: {unit.mp_regen}/s", stat_color),
+            (f"Attack: {unit.attack_damage} {dmg_str}", dmg_color),
+            (f"Range: {unit.attack_range}", stat_color),
+            (f"Attack Speed: {unit.attack_speed}%", stat_color),
+            (f"Strength: {unit.strength}", stat_color),
+            (f"Intelligence: {unit.intelligence}", stat_color),
+            (f"Armor: {unit.armor}", stat_color),
+            (f"Magic Resist: {unit.magic_resist}", stat_color),
         ]
-        
-        # Add current spell info (default skill is now set on creation)
+
+        affinities = self._format_affinities(unit)
+        if affinities:
+            lines.append(('', None))
+            lines.extend(affinities)
+
+        lines.append(('', None))
+
         if unit.spell:
-            lines.append("CURRENT SPELL:")
-            lines.append(f"• {unit.spell.name}")
+            lines.append(("SPELL:", (255, 150, 255)))
+            lines.append((f"  {unit.spell.name}", (255, 255, 100)))
             if hasattr(unit.spell, 'description') and unit.spell.description:
-                lines.append(f"  {unit.spell.description}")
-                
-            # Add skill stats
+                lines.append((f"  {unit.spell.description}", (200, 200, 200)))
+
             skill_stats = []
             if unit.spell.is_passive:
                 skill_stats.append("Passive")
             else:
                 if hasattr(unit.spell, 'cast_time') and unit.spell.cast_time is not None:
                     skill_stats.append(f"Cast: {unit.spell.cast_time}s")
-                if hasattr(unit.spell, 'cooldown_time') and unit.spell.cooldown_time is not None:
-                    skill_stats.append(f"CD: {unit.spell.cooldown_time}s")
                 if hasattr(unit.spell, 'mana_cost') and unit.spell.mana_cost is not None and unit.spell.mana_cost > 0:
                     skill_stats.append(f"Mana: {unit.spell.mana_cost}")
-                    
+
             if hasattr(unit.spell, 'range') and unit.spell.range is not None:
                 skill_stats.append(f"Range: {unit.spell.range}")
-                
+
             if skill_stats:
-                lines.append(f"  [{' | '.join(skill_stats)}]")
-        
-        return '\n'.join(lines)
-    
+                lines.append((f"  [{', '.join(skill_stats)}]", (150, 150, 200)))
+
+            # Show passive ability
+            if hasattr(unit.spell, 'passive') and unit.spell.passive:
+                lines.append(('', None))
+                lines.append(("PASSIVE:", (255, 150, 255)))
+                lines.append((f"  {unit.spell.passive.name}", (255, 255, 100)))
+                if hasattr(unit.spell.passive, 'description') and unit.spell.passive.description:
+                    lines.append((f"  {unit.spell.passive.description}", (200, 200, 200)))
+
+        return lines
+
     def create_item_tooltip(self, item):
         lines = [
             f"{item.name}",

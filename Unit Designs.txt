@@ -1,0 +1,205 @@
+----
+Sun Spirit - tanky support
+
+Holy Fire Spirit
+
+melee fire attacks
+
+Immune Holy
+Resist Fire
+Resist Dark
+Resist Phys
+Vuln Ice
+
+High HP
+
+Fire Shield: Gain 200[holy] HP shield.  Until you lose the shield, deal 10[fire] fire damage per second to all nearby enemies.
+
+Passive: Each second, all nearby allies heal each turn
+----
+
+Crazed Thornhound
+
+Blood Beast
+
+Resist Lightning
+Resist Fire
+Vuln Poison
+
+Med Hp
+Rather high atk
+melee phys attacks
+
+Berserk: gain 5% lifesteal and 15% attack speed
+Passive: deal phys damage to units that attack it in melee
+
+----
+
+Pillar of Bones
+
+Undead Structure
+
+Immune Dark
+Immune Poison
+Vuln Holy
+
+Cannot move
+Slow high damage melee phys attacks
+
+Raise Skeleton: summon a skeleton
+Passive: on unit dies, gain 50 mana
+
+----
+
+Water Nymph
+
+Living Water Fae
+
+Resist Arcane
+Resist Ice
+Resist Fire
+Vuln Dark
+
+ranged ice attacks
+
+Heal: big heal on lowest HP ally
+Splash: Autoattacks heal adjacent allies
+
+----
+
+Big Lips
+
+Arcane
+low hp
+
+fast movement
+
+Immune Arcane
+Resist Poison
+Vuln Holy
+
+ranged arcane attacks
+
+Tongue Attack: deal phys dmg and pull the farthest enemies 3 tiles towards Big Lips
+Passive: Allies within 2 tiles start battle with a 25% Max HP shield
+
+----
+
+Oakenheart
+
+Nature
+
+Resist Holy
+Resist Phys
+Vuln Poison
+Vuln Fire
+
+High HP
+Slow moves and attacks
+melee phys attacks
+
+Entangle: Stun the highest dps enemy champion for 2s
+Passive: Nearby allies gain 1 armor each second
+
+----
+
+Imp Torturer
+
+Fire Demon
+
+Immune Dark
+Resist Fire
+Vuln Ice
+Vuln Holy
+
+Low HP
+
+fast moves n attacks
+melee phys attacks
+
+Sparks: Fire dmg to 3 random enemies
+Passive: on dmging an enemy, stun for .1s
+
+----
+
+Mass of Tentacles
+
+Arcane Sturcture
+
+Resist arcane
+Resist phys
+Resist dark
+Vuln holy
+
+High HP
+
+Immobile
+Melee phys attacks
+
+Tentacle: pulls a unit towards self
+Passive: Arcane and Dark dmg aura
+
+----
+
+Flame Maiden
+
+Fire Spirit
+
+Immune Fire
+Resist Phys
+Vuln Ice
+
+ranged fire attack
+
+Active: deal fire damage in a 2 tile radius to current target
+Passive: On enemy take fire dmg, gain a charge.  At 25 charges, consume all charges and heal lowest hp ally for that much.
+
+----
+
+Red Wyrm
+
+Immune Fire
+Resist Phys
+Vuln Ice
+Vuln Pois
+
+High HP
+Slow move
+Slow attacks
+High dmg melee phys attacks
+
+
+
+Active: deal fire damage in line towards target
+Passive: On Attack, defender is displaced to a random adjacent tile and the wyrm moves into that tile
+
+---
+
+Void Knight
+
+Arcane
+
+Resist Arcane
+Resist Phys
+
+Melee arcane attacks
+
+Active: Cleanse debuffs, drop aggro, teleport to random target and attack it
+Passive: On deal arcane damage, gain 20% of dealt damage as shield for 5 sec
+
+---
+
+Blood Ogre
+
+Resist Dark
+Resist Ice
+Vuln Fire
+Vuln Holy
+
+High HP
+Melee physical attacks
+
+Active: Hit current target for 500% attack damage and stun them for 2s
+Passive: On battle start, all adjacent allies get +25% attack damage
+
+----
