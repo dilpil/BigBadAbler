@@ -161,6 +161,25 @@ class AbsorbShieldEffect(StatusEffect):
         return remaining_damage
 
 
+class DodgeEffect(StatusEffect):
+    """Dodge status effect that blocks one incoming attack"""
+    def __init__(self, stacks: int = 1):
+        super().__init__("Dodge", None)
+        self.stacks = stacks
+
+    def on_event(self, event_type: str, **kwargs):
+        if (event_type == "unit_attacked" and "target" in kwargs and
+            kwargs["target"] == self.unit and self.stacks > 0):
+            self.stacks -= 1
+            if "damage" in kwargs:
+                kwargs["damage"] = 0
+            if self.unit.board:
+                from visual_effect import VisualEffectType
+                self.unit.board.add_visual_effect(VisualEffectType.DODGE, self.unit.x, self.unit.y)
+            if self.stacks <= 0:
+                self.unit.remove_status_effect(self)
+
+
 class PlagueEffect(DamageOverTimeEffect):
     """Disease that spreads to nearby enemies"""
     def __init__(self, name: str, duration: Optional[float], damage_per_tick: float, spread_radius: int = 2):

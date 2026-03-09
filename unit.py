@@ -8,19 +8,53 @@ class UnitState(Enum):
     ATTACKING = "attacking"
     CASTING = "casting"
 
+class DamageType(Enum):
+    PHYSICAL = "physical"
+    FIRE = "fire"
+    ICE = "ice"
+    LIGHTNING = "lightning"
+    HOLY = "holy"
+    DARK = "dark"
+    ARCANE = "arcane"
+    POISON = "poison"
+
+class ElementalAffinity(Enum):
+    IMMUNE = "immune"       # 100% reduction (multiplier 0.0)
+    STRONG = "strong"       # 50% reduction (multiplier 0.5)
+    VULNERABLE = "vulnerable"  # -100% (multiplier 2.0)
+
+AFFINITY_MULTIPLIERS = {
+    ElementalAffinity.IMMUNE: 0.0,
+    ElementalAffinity.STRONG: 0.5,
+    ElementalAffinity.VULNERABLE: 2.0,
+}
+
+DAMAGE_TYPE_COLORS = {
+    DamageType.PHYSICAL: (255, 255, 255),     # White
+    DamageType.FIRE: (255, 100, 50),          # Orange
+    DamageType.ICE: (150, 200, 255),          # Light blue
+    DamageType.LIGHTNING: (255, 255, 100),    # Yellow
+    DamageType.HOLY: (255, 255, 200),         # Warm white
+    DamageType.DARK: (150, 50, 200),          # Purple
+    DamageType.ARCANE: (100, 150, 255),       # Blue
+    DamageType.POISON: (100, 200, 50),        # Green
+}
+
 class UnitType(Enum):
-    NECROMANCER = "necromancer"
-    PALADIN = "paladin"
-    PYROMANCER = "pyromancer"
-    BERSERKER = "berserker"
-    CLERIC = "cleric"
-    ASSASSIN = "assassin"
+    SUN_SPIRIT = "sun_spirit"
+    CRAZED_THORNHOUND = "crazed_thornhound"
+    PILLAR_OF_BONES = "pillar_of_bones"
+    WATER_NYMPH = "water_nymph"
+    BIG_LIPS = "big_lips"
+    OAKENHEART = "oakenheart"
+    IMP_TORTURER = "imp_torturer"
+    MASS_OF_TENTACLES = "mass_of_tentacles"
+    FLAME_MAIDEN = "flame_maiden"
+    RED_WYRM = "red_wyrm"
+    VOID_KNIGHT = "void_knight"
+    BLOOD_OGRE = "blood_ogre"
+    # Summon types
     SKELETON = "skeleton"
-    MAGIC_KNIGHT = "magic_knight"
-    WIZARD = "wizard"
-    OGRE_SHAMAN = "ogre_shaman"
-    YETI = "yeti"
-    SLIME = "slime"
 
 class Unit:
     _next_id = 0
@@ -49,13 +83,20 @@ class Unit:
         self.intelligence = 0
         self.armor = 0
         self.magic_resist = 0
-        self.fire_resist = 0
-        
+
         self.attack_damage = 10
         self.attack_range = 1
         self.attack_speed = 0
         self.base_attack_time = 1.0
         self.attack_timer = 0
+
+        # Damage types for autoattacks (list of DamageType)
+        self.attack_damage_types = [DamageType.PHYSICAL]
+        # Elemental affinities: maps DamageType -> ElementalAffinity
+        self.affinities = {}
+
+        # Whether this unit can move
+        self.immobile = False
         
         self.spell = None
         self.items = []
@@ -100,27 +141,28 @@ class Unit:
     def attack(self, target):
         if not self.can_attack(target):
             return
-            
+
         self.state = UnitState.ATTACKING
         self.target = target
-        
+
         damage = self.attack_damage * (1 + self.strength / 100)
-        
+        damage_types = self.attack_damage_types
+
         attack_time = self.base_attack_time / (1 + self.attack_speed / 100)
         self.attack_timer = attack_time
-        
+
         # Check if this is a ranged attack
         distance = self.board.get_distance(self, target)
         if distance > 1:  # Ranged attack - create projectile
             from projectile import Projectile
             projectile = Projectile(self, target, speed=15.0)
             projectile.damage = damage
-            projectile.damage_type = "physical"
-            projectile.on_hit_callback = lambda tgt: tgt.take_damage(projectile.damage, projectile.damage_type, self)
+            projectile.damage_types = damage_types
+            projectile.on_hit_callback = lambda tgt: tgt.take_damage(projectile.damage, projectile.damage_types, self)
             self.board.add_projectile(projectile)
         else:  # Melee attack - direct damage
-            target.take_damage(damage, "physical", self)
-        
+            target.take_damage(damage, damage_types, self)
+
         # Visual effect - bump towards target
         dx = target.x - self.x
         dy = target.y - self.y
@@ -133,24 +175,50 @@ class Unit:
 
         self.board.raise_event("unit_attack", attacker=self, target=target, damage=damage)
     
-    def take_damage(self, amount: float, damage_type: str, source):
+    def take_damage(self, amount: float, damage_types, source):
+        """Take damage with the given damage types.
+
+        damage_types can be:
+        - A list of DamageType enums (new system)
+        - A single DamageType enum
+        - A string like "physical", "fire", etc. (legacy compatibility)
+        - A list of strings (legacy compatibility)
+        """
         if not self.is_alive():
             return
-            
+
+        # Normalize damage_types to a list of DamageType enums
+        damage_types = self._normalize_damage_types(damage_types)
+
         # Grant mana based on pre-mitigation damage
         if self.spell and self.state != UnitState.CASTING:
             self.spell.add_mana(amount * 0.02)
-            
-        if damage_type == "physical":
+
+        # Calculate armor/resist mitigation
+        has_physical = DamageType.PHYSICAL in damage_types
+        has_non_physical = any(dt != DamageType.PHYSICAL for dt in damage_types)
+
+        if has_physical and not has_non_physical:
             mitigation = 100 / (100 + self.armor)
-        elif damage_type == "fire":
-            mitigation = 100 / (100 + self.fire_resist)
-        elif damage_type in ["magical", "ice", "lightning"]:
+        elif has_non_physical and not has_physical:
             mitigation = 100 / (100 + self.magic_resist)
+        elif has_physical and has_non_physical:
+            # Mixed: average of both mitigations
+            phys_mit = 100 / (100 + self.armor)
+            magic_mit = 100 / (100 + self.magic_resist)
+            mitigation = (phys_mit + magic_mit) / 2
         else:
             mitigation = 1.0
-            
-        actual_damage = amount * mitigation
+
+        # Apply elemental affinity multiplier (worst case for attacker = best for defender)
+        # If any type is immune, all damage is blocked
+        # Otherwise multiply: use the product of all affinity multipliers
+        affinity_mult = 1.0
+        for dt in damage_types:
+            if dt in self.affinities:
+                affinity_mult *= AFFINITY_MULTIPLIERS[self.affinities[dt]]
+
+        actual_damage = amount * mitigation * affinity_mult
         self.hp -= actual_damage
 
         # Start/extend damage drain animation
@@ -161,41 +229,64 @@ class Unit:
         self.flash_timer = 0.1
         self.flash_duration = 0.1
 
-        # Text floater for damage
-        if damage_type == "physical":
-            damage_color = (255, 255, 255)  # White for physical damage
-        elif damage_type == "magical":
-            damage_color = (100, 150, 255)  # Blue for magical damage
-        elif damage_type == "fire":
-            damage_color = (255, 100, 50)  # Orange for fire damage
-        elif damage_type == "ice":
-            damage_color = (150, 200, 255)  # Light blue for ice damage
-        elif damage_type == "lightning":
-            damage_color = (255, 255, 100)  # Yellow for lightning damage
+        # Text floater color based on primary damage type
+        if damage_types:
+            damage_color = DAMAGE_TYPE_COLORS.get(damage_types[0], (255, 255, 0))
         else:
-            damage_color = (255, 255, 0)  # Yellow for other damage types
-            
+            damage_color = (255, 255, 0)
+
         self.board.make_text_floater(f"-{int(actual_damage)}", damage_color, unit=self)
-        
+
+        # Build damage type string for log
+        type_str = "/".join(dt.value for dt in damage_types) if damage_types else "untyped"
+
         # Add to combat log and play hit sound
         if self.board.game:
             source_name = source.name if hasattr(source, 'name') else "Unknown"
-            self.board.game.add_message(f"{source_name} dealt {int(actual_damage)} {damage_type} damage to {self.name}")
-            # Play hit sound
+            self.board.game.add_message(f"{source_name} dealt {int(actual_damage)} {type_str} damage to {self.name}")
             if hasattr(self.board.game, 'ui') and self.board.game.ui:
                 self.board.game.ui.play_sound('hit')
-        
-        self.board.raise_event("damage_taken", 
-                              unit=self, 
-                              damage=actual_damage, 
-                              damage_type=damage_type, 
+
+        self.board.raise_event("damage_taken",
+                              unit=self,
+                              damage=actual_damage,
+                              damage_types=damage_types,
                               source=source)
-        
+
         if self.hp <= 0:
             self.hp = 0
             self.die(source)
-            
+
         return actual_damage
+
+    @staticmethod
+    def _normalize_damage_types(damage_types):
+        """Normalize damage_types to a list of DamageType enums."""
+        if damage_types is None:
+            return []
+        if isinstance(damage_types, DamageType):
+            return [damage_types]
+        if isinstance(damage_types, str):
+            # Legacy string support
+            try:
+                return [DamageType(damage_types)]
+            except ValueError:
+                if damage_types == "magical":
+                    return [DamageType.ARCANE]
+                return []
+        if isinstance(damage_types, list):
+            result = []
+            for dt in damage_types:
+                if isinstance(dt, DamageType):
+                    result.append(dt)
+                elif isinstance(dt, str):
+                    try:
+                        result.append(DamageType(dt))
+                    except ValueError:
+                        if dt == "magical":
+                            result.append(DamageType.ARCANE)
+            return result
+        return []
     
     def heal(self, amount: float, source):
         if not self.is_alive():
@@ -408,7 +499,9 @@ class Unit:
     def move_towards(self, target):
         if self.state != UnitState.IDLE:
             return
-            
+        if self.immobile:
+            return
+
         path = self.board.find_path(self.x, self.y, target.x, target.y)
         if len(path) > 1:
             next_pos = path[1]

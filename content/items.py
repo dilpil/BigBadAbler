@@ -301,10 +301,13 @@ class SnowGlobe(Item):
         
     def on_event(self, event_type: str, **kwargs):
         if event_type == "damage_taken" and kwargs.get("source") == self.unit:
-            if kwargs.get("damage_type") == "magical":
+            from unit import DamageType
+            damage_types = kwargs.get("damage_types", [])
+            # Trigger on any non-physical magical damage
+            non_phys = any(dt != DamageType.PHYSICAL for dt in damage_types)
+            if non_phys:
                 target = kwargs.get("unit")
                 if target and target.is_alive():
-                    # Apply chill debuff
                     chill = StatModifierEffect("Chill", None, {"attack_speed": -3, "move_speed": -0.03})
                     chill.source = self.unit
                     target.add_status_effect(chill)
@@ -563,7 +566,7 @@ class CloakOfShadows(Item):
                 existing_dodge.stacks += 1
             else:
                 # Create new dodge effect
-                from content.units.assassin import DodgeEffect
+                from status_effect import DodgeEffect
                 dodge = DodgeEffect(1)
                 dodge.source = self.unit
                 self.unit.add_status_effect(dodge)

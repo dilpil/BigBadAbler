@@ -67,18 +67,19 @@ class PyUI:
             'button': (80, 40, 100),
             'button_hover': (100, 60, 120),
             'button_disabled': (40, 30, 50),
-            'necromancer': (80, 0, 120),
-            'paladin': (255, 200, 0),
-            'pyromancer': (255, 100, 0),
-            'berserker': (200, 50, 50),
-            'cleric': (200, 200, 255),
-            'assassin': (50, 50, 50),
+            'sun_spirit': (255, 200, 50),
+            'crazed_thornhound': (200, 50, 50),
+            'pillar_of_bones': (150, 130, 100),
+            'water_nymph': (100, 180, 255),
+            'big_lips': (180, 100, 255),
+            'oakenheart': (80, 150, 50),
+            'imp_torturer': (255, 80, 30),
+            'mass_of_tentacles': (120, 50, 180),
+            'flame_maiden': (255, 120, 60),
+            'red_wyrm': (220, 40, 40),
+            'void_knight': (80, 120, 255),
+            'blood_ogre': (180, 60, 60),
             'skeleton': (150, 150, 150),
-            'magic_knight': (100, 150, 255),
-            'wizard': (150, 50, 200),
-            'ogre_shaman': (100, 150, 50),
-            'yeti': (200, 230, 255),
-            'slime': (50, 200, 50),
             'panel_bg': (30, 10, 50),
             'panel_border': (100, 50, 150),
             'panel_flash_red': (255, 50, 50),
@@ -1108,17 +1109,16 @@ class PyUI:
             y = self.board_y + projectile.y * self.tile_size + self.tile_size // 2
             
             # Different colors for different projectile types
-            if hasattr(projectile, 'damage_type'):
-                if projectile.damage_type == "magical":
-                    color = (255, 100, 255)
-                elif projectile.damage_type == "fire":
-                    color = (255, 100, 50)  # Fire orange
-                elif projectile.damage_type == "lightning":
-                    color = (255, 255, 100)  # Lightning yellow
-                else:
-                    color = (255, 255, 100)
-            else:
-                color = (255, 255, 0)
+            from unit import DamageType, DAMAGE_TYPE_COLORS
+            color = (255, 255, 100)  # Default yellow
+            if hasattr(projectile, 'damage_types') and projectile.damage_types:
+                color = DAMAGE_TYPE_COLORS.get(projectile.damage_types[0], color)
+            elif hasattr(projectile, 'damage_type') and projectile.damage_type:
+                try:
+                    dt = DamageType(projectile.damage_type)
+                    color = DAMAGE_TYPE_COLORS.get(dt, color)
+                except ValueError:
+                    pass
                 
             # Draw glow effect
             for i in range(3):

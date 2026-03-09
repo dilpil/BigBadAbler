@@ -13,16 +13,13 @@ class TestEnemyPositioning(unittest.TestCase):
         """Melee units (attack_range <= 1) should be placed in x=4-5"""
         game = Game(GameMode.ASYNC)
 
-        # Create melee units
         melee_units = []
         for i in range(4):
-            unit = Unit(f"Melee{i}", UnitType.BERSERKER)
+            unit = Unit(f"Melee{i}", UnitType.BLOOD_OGRE)
             unit.attack_range = 1
             melee_units.append(unit)
 
         positions = game._generate_strategic_positions(melee_units)
-
-        print(f"Melee positions: {positions}")
 
         for i, pos in enumerate(positions):
             self.assertIn(pos[0], [4, 5], f"Melee unit {i} at x={pos[0]}, expected 4 or 5")
@@ -32,16 +29,13 @@ class TestEnemyPositioning(unittest.TestCase):
         """Ranged units (attack_range > 1) should be placed in x=6-7"""
         game = Game(GameMode.ASYNC)
 
-        # Create ranged units
         ranged_units = []
         for i in range(4):
-            unit = Unit(f"Ranged{i}", UnitType.PYROMANCER)
+            unit = Unit(f"Ranged{i}", UnitType.FLAME_MAIDEN)
             unit.attack_range = 4
             ranged_units.append(unit)
 
         positions = game._generate_strategic_positions(ranged_units)
-
-        print(f"Ranged positions: {positions}")
 
         for i, pos in enumerate(positions):
             self.assertIn(pos[0], [6, 7], f"Ranged unit {i} at x={pos[0]}, expected 6 or 7")
@@ -51,24 +45,20 @@ class TestEnemyPositioning(unittest.TestCase):
         """Mixed melee/ranged units should be placed correctly"""
         game = Game(GameMode.ASYNC)
 
-        # Create mixed units - Cleric (range 3) and Assassin (range 1)
-        cleric = Unit("Cleric", UnitType.CLERIC)
-        cleric.attack_range = 3  # Ranged
+        nymph = Unit("Water Nymph", UnitType.WATER_NYMPH)
+        nymph.attack_range = 4  # Ranged
 
-        assassin = Unit("Assassin", UnitType.ASSASSIN)
-        assassin.attack_range = 1  # Melee
+        ogre = Unit("Blood Ogre", UnitType.BLOOD_OGRE)
+        ogre.attack_range = 1  # Melee
 
-        units = [cleric, assassin]
+        units = [nymph, ogre]
         positions = game._generate_strategic_positions(units)
 
-        print(f"Cleric (range 3) position: {positions[0]}")
-        print(f"Assassin (range 1) position: {positions[1]}")
+        # Nymph should be in back (x=6-7)
+        self.assertIn(positions[0][0], [6, 7], f"Nymph at x={positions[0][0]}, expected 6 or 7")
 
-        # Cleric should be in back (x=6-7)
-        self.assertIn(positions[0][0], [6, 7], f"Cleric at x={positions[0][0]}, expected 6 or 7")
-
-        # Assassin should be in front (x=4-5)
-        self.assertIn(positions[1][0], [4, 5], f"Assassin at x={positions[1][0]}, expected 4 or 5")
+        # Ogre should be in front (x=4-5)
+        self.assertIn(positions[1][0], [4, 5], f"Ogre at x={positions[1][0]}, expected 4 or 5")
 
     def test_y_positions_are_random(self):
         """Y positions should vary across multiple runs"""
@@ -77,12 +67,10 @@ class TestEnemyPositioning(unittest.TestCase):
         y_values_seen = set()
 
         for _ in range(20):
-            unit = Unit("Test", UnitType.BERSERKER)
+            unit = Unit("Test", UnitType.BLOOD_OGRE)
             unit.attack_range = 1
             positions = game._generate_strategic_positions([unit])
             y_values_seen.add(positions[0][1])
-
-        print(f"Y values seen across 20 runs: {sorted(y_values_seen)}")
 
         # Should see at least 3 different y values across 20 runs
         self.assertGreaterEqual(len(y_values_seen), 3,
@@ -92,47 +80,38 @@ class TestEnemyPositioning(unittest.TestCase):
         """Multiple units should not share the same position"""
         game = Game(GameMode.ASYNC)
 
-        # Create many units to fill positions
         units = []
         for i in range(8):
-            unit = Unit(f"Unit{i}", UnitType.BERSERKER)
+            unit = Unit(f"Unit{i}", UnitType.BLOOD_OGRE)
             unit.attack_range = 1
             units.append(unit)
 
         positions = game._generate_strategic_positions(units)
 
-        print(f"Positions for 8 melee units: {positions}")
-
         # Check no duplicates
         self.assertEqual(len(positions), len(set(positions)),
             f"Found duplicate positions: {positions}")
 
-    def test_actual_cleric_and_assassin_classes(self):
-        """Test with actual Cleric and Assassin unit classes"""
-        from content.units.cleric import Cleric
-        from content.units.assassin import Assassin
+    def test_actual_unit_classes(self):
+        """Test with actual unit classes"""
+        from content.units.water_nymph import WaterNymph
+        from content.units.blood_ogre import BloodOgre
 
         game = Game(GameMode.ASYNC)
 
-        cleric = Cleric()
-        assassin = Assassin()
+        nymph = WaterNymph()
+        ogre = BloodOgre()
 
-        print(f"Cleric attack_range: {cleric.attack_range}")
-        print(f"Assassin attack_range: {assassin.attack_range}")
-
-        units = [cleric, assassin]
+        units = [nymph, ogre]
         positions = game._generate_strategic_positions(units)
 
-        print(f"Cleric position: {positions[0]}")
-        print(f"Assassin position: {positions[1]}")
-
-        # Cleric has range 3, should be in back
+        # Nymph has range 4, should be in back
         self.assertIn(positions[0][0], [6, 7],
-            f"Cleric (range {cleric.attack_range}) at x={positions[0][0]}, expected 6 or 7")
+            f"Nymph (range {nymph.attack_range}) at x={positions[0][0]}, expected 6 or 7")
 
-        # Assassin has range 1, should be in front
+        # Ogre has range 1, should be in front
         self.assertIn(positions[1][0], [4, 5],
-            f"Assassin (range {assassin.attack_range}) at x={positions[1][0]}, expected 4 or 5")
+            f"Ogre (range {ogre.attack_range}) at x={positions[1][0]}, expected 4 or 5")
 
 
     def test_full_game_flow_positioning(self):
@@ -140,14 +119,7 @@ class TestEnemyPositioning(unittest.TestCase):
         game = Game(GameMode.ASYNC)
         game.start_new_round()
 
-        print("\n--- Full game flow test ---")
-        print(f"Enemy units: {len(game.enemy_team.units)}")
-
         for unit in game.enemy_team.units:
-            print(f"  {unit.name} (range {unit.attack_range}): "
-                  f"board pos ({unit.x}, {unit.y}), "
-                  f"original ({unit.original_x}, {unit.original_y})")
-
             # Check that board position matches original position
             self.assertEqual(unit.x, unit.original_x,
                 f"{unit.name} x mismatch: board={unit.x}, original={unit.original_x}")

@@ -252,7 +252,7 @@ class FireResistanceAugment(PassiveAugment):
             effect = StatModifierEffect(
                 "Fire Resistance",
                 duration=None,
-                stat_changes={"fire_resist": 50}
+                stat_changes={"magic_resist": 50}
             )
             effect.source = self
             unit.add_status_effect(effect)
@@ -874,22 +874,6 @@ class FrostyCloakAugment(ItemAugment):
         )
 
 
-# Rare Unit Augments
-
-class DragonAugment(UnitAugment):
-    def __init__(self):
-        def create_dragon():
-            from content.units.dragon import Dragon
-            return Dragon()
-        
-        super().__init__(
-            "Ancient Dragon",
-            "Rare Unit: Dragon with 3000 HP and fire breath",
-            150,
-            create_dragon
-        )
-
-
 # Factory function to get all augments
 def get_all_augment_types():
     """Returns a list of all augment class constructors"""
@@ -948,8 +932,6 @@ def get_all_augment_types():
         BasiliskHammerAugment,
         FrostyCloakAugment,
 
-        # Rare unit augments
-        DragonAugment
     ]
 
 
@@ -1059,8 +1041,8 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
             shop.append(gen_item())
         elif roll < 0.90:  # 40% augment
             shop.append(gen_augment())
-        else:  # 10% rare unit augment (dragon, etc)
-            shop.append(DragonAugment())
+        else:  # 10% extra augment
+            shop.append(gen_augment())
 
     # Sort shop by type: units first, then items, then augments
     def sort_key(entry):
@@ -1070,8 +1052,6 @@ def generate_augment_shop(team=None, count: int = 10) -> list:
             return 1  # Items second
         elif isinstance(entry, PassiveAugment):
             return 2  # Augments third
-        elif isinstance(entry, UnitAugment):
-            return 3  # Rare units last
         return 4
 
     shop.sort(key=sort_key)
@@ -1090,8 +1070,6 @@ def generate_augment_shop_legacy(count: int = 5) -> list:
             weights.append(3)  # Common
         elif issubclass(augment_type, ItemAugment):
             weights.append(2)  # Less common
-        elif issubclass(augment_type, UnitAugment):
-            weights.append(1)  # Rare
         else:
             weights.append(2)  # Default
 

@@ -34,7 +34,8 @@ class Projectile:
         
         # Damage properties
         self.damage = 0
-        self.damage_type = "physical"
+        self.damage_type = "physical"  # Legacy single type
+        self.damage_types = None       # New multi-type system (list of DamageType)
         self.effects = []
         
         # Homing properties
@@ -118,7 +119,8 @@ class Projectile:
             self.on_hit_callback(target)
         else:
             if self.damage > 0:
-                target.take_damage(self.damage, self.damage_type, self.source)
+                dmg_types = self.damage_types if self.damage_types is not None else self.damage_type
+                target.take_damage(self.damage, dmg_types, self.source)
                 
             for effect in self.effects:
                 target.add_status_effect(effect)
